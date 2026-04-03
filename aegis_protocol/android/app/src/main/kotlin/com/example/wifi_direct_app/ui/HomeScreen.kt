@@ -114,6 +114,54 @@ fun HomeScreen(
                         onSend = onSendFile
                     )
                 }
+                
+                // --- Transfer Code Display (auto-generated) ---
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        color = C.card,
+                        shape = RoundedCornerShape(16.dp),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Security Code",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = C.textMuted
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            if (state.generatedTransferCode != null) {
+                                Text(
+                                    state.generatedTransferCode!!,
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = C.accent,
+                                    letterSpacing = 6.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Share this code with the receiver",
+                                    fontSize = 12.sp,
+                                    color = C.textMuted
+                                )
+                            } else {
+                                CircularProgressIndicator(
+                                    color = C.accent,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Generating code...", fontSize = 12.sp, color = C.textMuted)
+                            }
+                        }
+                    }
+                }
             }
 
             if (state.isInitialized && state.capturedImagePath != null) {
@@ -198,7 +246,7 @@ fun HomeScreen(
     }
 
     if (state.permissionRequestPending) {
-        IncomingRequestDialog(onAcceptTransfer, onDeclineTransfer)
+        IncomingRequestDialog(viewModel, onAcceptTransfer, onDeclineTransfer)
     }
 }
 
@@ -214,7 +262,11 @@ fun StatusRow(message: String, isConnected: Boolean, isInitialized: Boolean) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IncomingRequestDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
+fun IncomingRequestDialog(viewModel: MainViewModel, onAccept: () -> Unit, onDecline: () -> Unit) {
+    val state by viewModel.uiState.collectAsState()
+    var enteredCode by remember { mutableStateOf("") }
+    var showCodeEntry by remember { mutableStateOf(false) }
+    
     ModalBottomSheet(
         onDismissRequest = onDecline,
         containerColor = Color.White,
@@ -234,24 +286,84 @@ fun IncomingRequestDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             Text("Incoming photo", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = C.text)
             Spacer(modifier = Modifier.height(6.dp))
-            Text("Someone wants to send you a photo", fontSize = 14.sp, color = C.textMuted)
-            Spacer(modifier = Modifier.height(28.dp))
-            Row {
-                OutlinedButton(
-                    onClick = onDecline,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text("Decline", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            
+            if (!showCodeEntry) {
+                // Stage 1: Accept or Decline
+                Text("Someone wants to send you a photo", fontSize = 14.sp, color = C.textMuted)
+                Spacer(modifier = Modifier.height(28.dp))
+                Row {
+                    OutlinedButton(
+                        onClick = onDecline,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Decline", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = { showCodeEntry = true },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = C.accent)
+                    ) {
+                        Text("Accept", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = onAccept,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = C.accent)
-                ) {
-                    Text("Accept", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            } else {
+                // Stage 2: Enter security code
+                Text("Enter the sender's security code", fontSize = 14.sp, color = C.textMuted)
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                OutlinedTextField(
+                    value = enteredCode,
+                    onValueChange = { if (it.length <= 6) enteredCode = it },
+                    label = { Text("6-digit code") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = C.card,
+                        focusedContainerColor = C.card,
+                        unfocusedBorderColor = C.border,
+                        focusedBorderColor = C.accent,
+                        unfocusedTextColor = C.text,
+                        focusedTextColor = C.text
+                    ),
+                    singleLine = true
+                )
+                
+                if (state.codeVerificationError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(state.codeVerificationError!!, fontSize = 13.sp, color = Color(0xFFD32F2F))
+                }
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                Row {
+                    OutlinedButton(
+                        onClick = { showCodeEntry = false },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Back", color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            viewModel.verifyTransferCode(enteredCode) {
+                                onAccept()
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = C.green),
+                        enabled = !state.isVerifyingCode
+                    ) {
+                        if (state.isVerifyingCode) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Verify", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }

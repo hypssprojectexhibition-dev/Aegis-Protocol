@@ -21,6 +21,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.wifi_direct_app.ui.CameraScreen
 import com.example.wifi_direct_app.ui.HomeScreen
+import com.example.wifi_direct_app.ui.SignUpScreen
+import com.example.wifi_direct_app.ui.SignInScreen
 import com.example.wifi_direct_app.utils.MediaStoreUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,8 +67,18 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var showCamera by remember { mutableStateOf(false) }
+                    val state by viewModel.uiState.collectAsState()
 
-                    if (showCamera) {
+                    if (!state.isSignedUp) {
+                        if (state.showSignIn) {
+                            SignInScreen(viewModel = viewModel)
+                        } else {
+                            SignUpScreen(
+                                viewModel = viewModel,
+                                onNavigateToSignIn = { viewModel.toggleAuthScreen() }
+                            )
+                        }
+                    } else if (showCamera) {
                         CameraScreen(
                             onImageCaptured = { path ->
                                 showCamera = false
@@ -98,10 +110,26 @@ class MainActivity : ComponentActivity() {
                             },
                             onConnectDevice = { address, name ->
                                 viewModel.setConnectingAddress(address)
+                                viewModel.updateStatusMessage("Connecting to $name...")
+                                
                                 wifiDirectManager.connectToPeer(address) { success ->
                                     if (!success) {
                                         viewModel.setConnectingAddress(null)
                                         viewModel.updateStatusMessage("Connection failed to $name")
+                                    } else {
+                                        // Connection timeout: if not connected in 15 seconds, auto-cancel
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            kotlinx.coroutines.delay(15000)
+                                            if (viewModel.uiState.value.connectingToAddress != null && !viewModel.uiState.value.isConnected) {
+                                                viewModel.updateStatusMessage("Connection timed out — retrying...")
+                                                wifiDirectManager.disconnect { _ ->
+                                                    viewModel.setConnectingAddress(null)
+                                                    viewModel.updateConnectionStatus(false)
+                                                    targetIpAddress = null
+                                                    startFreshDiscovery()
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -185,22 +213,13 @@ class MainActivity : ComponentActivity() {
         val success = wifiDirectManager.initialize()
 
         if (success) {
-            viewModel.updateInitialized(true, "Scanning for devices...")
+            viewModel.updateInitialized(true, "Cleaning up...")
             
-            fun triggerDiscovery() {
-                wifiDirectManager.discoverPeers { started ->
-                    if (started) {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            kotlinx.coroutines.delay(4000)
-                            if (!viewModel.uiState.value.isConnected && viewModel.uiState.value.connectingToAddress == null) {
-                                wifiDirectManager.requestPeers { }
-                            }
-                        }
-                    }
-                }
+            // AGGRESSIVE CLEANUP: Force-remove any stale WiFi Direct group from previous sessions
+            wifiDirectManager.disconnect { _ ->
+                viewModel.updateStatusMessage("Scanning for devices...")
+                startFreshDiscovery()
             }
-            
-            triggerDiscovery()
 
             receiver = WiFiDirectBroadcastReceiver(
                 wifiDirectManager.getManager(),
@@ -216,7 +235,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         
-                        val filteredPeers = peerDevices.filter { it.status == "Available" || it.status == "Connected" || it.address == viewModel.uiState.value.connectingToAddress }
+                        // Only show Available/Connected peers, plus any peer WE are actively connecting to
+                        val filteredPeers = peerDevices.filter {
+                            it.status == "Available" || it.status == "Connected" || it.address == viewModel.uiState.value.connectingToAddress
+                        }
                         
                         viewModel.updatePeers(filteredPeers)
                         
@@ -230,7 +252,7 @@ class MainActivity : ComponentActivity() {
                             }
                             CoroutineScope(Dispatchers.Main).launch {
                                 kotlinx.coroutines.delay(12000)
-                                if (!viewModel.uiState.value.isConnected) triggerDiscovery()
+                                if (!viewModel.uiState.value.isConnected) startFreshDiscovery()
                             }
                         }
                     }
@@ -281,6 +303,10 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     Toast.makeText(this@MainActivity, "Received photo, but failed to save.", Toast.LENGTH_LONG).show()
                                 }
+                                
+                                // Auto-cleanup after receive: disconnect and reset for next transfer
+                                kotlinx.coroutines.delay(2000)
+                                disconnectAndReset()
                             }
                         }
                         
@@ -361,9 +387,42 @@ class MainActivity : ComponentActivity() {
                     if (success) {
                         viewModel.updateStatusMessage("Sent successfully!")
                         Toast.makeText(this@MainActivity, "Photo sent!", Toast.LENGTH_SHORT).show()
+                        
+                        // Auto-cleanup after send: disconnect and reset for next transfer
+                        kotlinx.coroutines.delay(2000)
+                        disconnectAndReset()
                     } else {
                         viewModel.updateStatusMessage("Send failed")
                         Toast.makeText(this@MainActivity, "Send failed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun disconnectAndReset() {
+        // Stop all services
+        handshakeService.stopListening()
+        permissionService.stopListening()
+        fileReceiverService.stopServer()
+        
+        // Disconnect WiFi Direct group so next connection is fresh
+        wifiDirectManager.disconnect { _ ->
+            targetIpAddress = null
+            viewModel.resetForNewTransfer()
+            
+            // Re-trigger peer discovery for next transfer
+            startFreshDiscovery()
+        }
+    }
+
+    private fun startFreshDiscovery() {
+        wifiDirectManager.discoverPeers { started ->
+            if (started) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    kotlinx.coroutines.delay(4000)
+                    if (!viewModel.uiState.value.isConnected && viewModel.uiState.value.connectingToAddress == null) {
+                        wifiDirectManager.requestPeers { }
                     }
                 }
             }

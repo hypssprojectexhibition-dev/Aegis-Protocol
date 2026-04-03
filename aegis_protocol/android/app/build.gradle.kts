@@ -1,16 +1,17 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
 }
 
 android {
     namespace = "com.example.wifi_direct_app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.wifi_direct_app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -36,7 +37,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
 
@@ -71,4 +72,21 @@ dependencies {
 
     // Coil Compose
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Supabase Integration (Using rock-solid 2.6.1 to bypass compiler bugs)
+    val supabaseVersion = "2.6.1"
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
+    
+    // Force older browser library to bypass AGP 8.9.1 / compileSdk 36 requirement
+    implementation("androidx.browser:browser") {
+        version {
+            strictly("1.8.0")
+        }
+    }
+    
+    // Ktor Client for Supabase
+    val ktorVersion = "2.3.12"
+    implementation("io.ktor:ktor-client-android:$ktorVersion")
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
 }
