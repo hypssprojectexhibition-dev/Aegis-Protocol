@@ -1,13 +1,13 @@
-# SnapDrop: 100% Native Kotlin P2P Photo Transfer
+# Aegis Protocol: 100% Native Kotlin P2P Photo Transfer
 
-SnapDrop is a high-speed, local-only, P2P photo transfer suite for Android. It solves the "local sharing" problem without the friction of Bluetooth pairing or the data-cost of cloud services.
+Aegis Protocol is a high-speed, local-only, P2P photo transfer suite for Android. It solves the "local sharing" problem without the friction of Bluetooth pairing or the data-cost of cloud services.
 
 ## 🏁 Project Vision & Evolution
 Originally started as a hybrid experiment, the project has been fully migrated to a **100% Native Kotlin** architecture using **Jetpack Compose** for a premium, responsive UI.
 
 ### Key Milestones:
 - **Continuous Automated Discovery**: A recursive 12-second heartbeat loop ensures peers stay visible without manual scanning.
-- **Native Share Integration**: Supports `ACTION_SEND` intents, allowing users to "Share" directly from any Gallery app into SnapDrop.
+- **Native Share Integration**: Supports `ACTION_SEND` intents, allowing users to "Share" directly from any Gallery app into Aegis Protocol.
 - **Human-Centric Design**: A warm, off-white/coral aesthetic with smooth micro-interactions.
 - **Instant Viewing**: Received photos automatically open in the device's default gallery app immediately after transfer.
 
@@ -37,7 +37,7 @@ Originally started as a hybrid experiment, the project has been fully migrated t
 git clone https://github.com/hypssprojectexhibition-dev/Aegis-Protocol.git
 
 # Navigate to the android module
-cd wifi_direct_app/android
+cd aegis_protocol/android
 
 # Build the Debug APK
 ./gradlew assembleDebug
@@ -46,7 +46,7 @@ cd wifi_direct_app/android
 ./gradlew clean
 ```
 
-**Output Location**: `wifi_direct_app/android/app/build/outputs/apk/debug/app-debug.apk`
+**Output Location**: `aegis_protocol/android/app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 

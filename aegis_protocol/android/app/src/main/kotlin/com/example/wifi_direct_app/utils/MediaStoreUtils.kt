@@ -18,10 +18,10 @@ object MediaStoreUtils {
 
             val resolver = context.contentResolver
             val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, "SnapDrop_\${System.currentTimeMillis()}.jpg")
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "AegisProtocol_${System.currentTimeMillis()}.jpg")
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/SnapDrop")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/AegisProtocol")
                 }
             }
 

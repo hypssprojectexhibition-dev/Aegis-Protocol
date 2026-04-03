@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
                                 wifiDirectManager.connectToPeer(address) { success ->
                                     if (!success) {
                                         viewModel.setConnectingAddress(null)
-                                        viewModel.updateStatusMessage("Connection failed to \$name")
+                                        viewModel.updateStatusMessage("Connection failed to $name")
                                     }
                                 }
                             },
@@ -124,7 +124,6 @@ class MainActivity : ComponentActivity() {
         handleSendIntent(intent)
     }
 
-    // Phase 1.9.1: System Share Intent Integration ported natively
     private fun handleSendIntent(intent: Intent?) {
         if (intent == null) return
         if (Intent.ACTION_SEND == intent.action && intent.type?.startsWith("image/") == true) {
@@ -138,7 +137,7 @@ class MainActivity : ComponentActivity() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val inputStream: InputStream? = contentResolver.openInputStream(imageUri)
-                        val cacheFile = File(cacheDir, "shared_image_\${System.currentTimeMillis()}.jpg")
+                        val cacheFile = File(cacheDir, "shared_image_${System.currentTimeMillis()}.jpg")
                         val outputStream = FileOutputStream(cacheFile)
                         inputStream?.copyTo(outputStream)
                         inputStream?.close()
@@ -161,9 +160,17 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
 
@@ -183,13 +190,10 @@ class MainActivity : ComponentActivity() {
             fun triggerDiscovery() {
                 wifiDirectManager.discoverPeers { started ->
                     if (started) {
-                        // Polling hack based on architecture constraint
                         CoroutineScope(Dispatchers.Main).launch {
                             kotlinx.coroutines.delay(4000)
                             if (!viewModel.uiState.value.isConnected && viewModel.uiState.value.connectingToAddress == null) {
-                                wifiDirectManager.requestPeers { peersList -> 
-                                    // Already emitted by onPeersChanged broadcast, but force refresh just in case
-                                }
+                                wifiDirectManager.requestPeers { }
                             }
                         }
                     }
@@ -222,9 +226,8 @@ class MainActivity : ComponentActivity() {
                             if (filteredPeers.isEmpty()) {
                                 viewModel.updateStatusMessage("Searching nearby...")
                             } else {
-                                viewModel.updateStatusMessage("\${filteredPeers.size} device(s) found")
+                                viewModel.updateStatusMessage("${filteredPeers.size} device(s) found")
                             }
-                            // Recursive automated loop replica
                             CoroutineScope(Dispatchers.Main).launch {
                                 kotlinx.coroutines.delay(12000)
                                 if (!viewModel.uiState.value.isConnected) triggerDiscovery()
@@ -248,7 +251,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         } else {
-                            targetIpAddress = goIp // Client natively knows GO IP
+                            targetIpAddress = goIp
                             if (goIp != null) {
                                 CoroutineScope(Dispatchers.IO).launch {
                                     handshakeService.sendHandshakePing(goIp)
@@ -260,8 +263,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Listen for incoming transfers
-                        fileReceiverService.startServer { data, filePath ->
+                        fileReceiverService.startServer { _, filePath ->
                             CoroutineScope(Dispatchers.Main).launch {
                                 viewModel.updateStatusMessage("Photo received!")
                                 val savedUri = MediaStoreUtils.saveImageToGallery(this@MainActivity, filePath)
@@ -282,8 +284,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         
-                        // Listen for Permission commands
-                        permissionService.startListeningForCommands { command, senderIp ->
+                        permissionService.startListeningForCommands { command, _ ->
                             CoroutineScope(Dispatchers.Main).launch {
                                 val safeCmd = command.trim()
                                 if (safeCmd == "REQUEST") {
@@ -307,7 +308,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             )
-            registerReceiver(receiver, intentFilter)
+            
+            // Fix for Android 14 (SDK 34): Register receiver with export flag
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, intentFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(receiver, intentFilter)
+            }
         } else {
             viewModel.updateInitialized(false, "Permission denied")
         }
@@ -373,7 +380,7 @@ class MainActivity : ComponentActivity() {
             }
         } else if (requestCode == 1002) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // permission granted, user will have to tap capture again
+                // permission granted
             } else {
                 Toast.makeText(this, "Camera permission required.", Toast.LENGTH_SHORT).show()
             }
