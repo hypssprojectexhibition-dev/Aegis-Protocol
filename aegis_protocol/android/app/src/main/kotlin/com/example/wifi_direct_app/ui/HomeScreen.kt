@@ -68,7 +68,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Photo Transfer",
+                        "Aegis Protocol",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = C.text,
