@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useAppStore } from '../lib/store';
 import {
-  Bell,
-  LayoutGrid,
-  Share2,
-  Settings,
-  Camera,
-  Eraser,
-  User,
-} from 'lucide-react';
+  NotificationsRounded as Bell,
+  DashboardRounded as LayoutGrid,
+  ShareRounded,
+  SettingsRounded as Settings,
+  PhotoCameraRounded as Camera,
+  AutoFixHighRounded as Eraser,
+  AccountCircleRounded as User,
+} from '@mui/icons-material';
 import logo from '../assets/logo.png';
 import CapturePage from './dashboard/Capture';
 import SplitPage from './dashboard/Split';
@@ -16,11 +16,12 @@ import RedactPage from './dashboard/Redact';
 import ProfilePage from './dashboard/Profile';
 import SettingsPage from './dashboard/Settings';
 import { supabase } from '../lib/supabase';
+import WindowControls from '../components/WindowControls';
 
 type Tab = 'capture' | 'share' | 'redact' | 'settings' | 'profile';
 
 const TABS: { id: Tab; icon: any; label: string }[] = [
-  { id: 'share', icon: Share2, label: 'Share' },
+  { id: 'share', icon: ShareRounded, label: 'Share' },
   { id: 'settings', icon: Settings, label: 'Settings' },
   { id: 'capture', icon: Camera, label: 'Capture' },
   { id: 'redact', icon: Eraser, label: 'Redact' },
@@ -41,18 +42,30 @@ export default function Dashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)', overflow: 'hidden' }}>
       
       {/* Top Header */}
-      <header style={{
-        height: 64, flexShrink: 0, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'var(--bg-card)', zIndex: 50, borderBottom: '1px solid var(--border)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-          <img src={logo} alt="Aegis Logo" style={{ width: 28, height: 28, objectFit: 'contain' }} />
-          <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '-0.02em', fontFamily: 'Manrope, sans-serif' }}>
+      <header 
+        style={{
+          height: 64, flexShrink: 0, padding: '0 0 0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--bg-card)', zIndex: 100, borderBottom: '1px solid var(--border)',
+          userSelect: 'none'
+        }}
+      >
+        <div 
+          data-tauri-drag-region 
+          style={{ 
+            position: 'absolute', top: 0, left: 0, right: 0, height: 64, 
+            zIndex: 0, pointerEvents: 'none' 
+          }} 
+        />
+        <div data-tauri-drag-region style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'default', zIndex: 10, position: 'relative' }}>
+          <img src={logo} alt="Aegis Logo" style={{ width: 28, height: 28, objectFit: 'contain', pointerEvents: 'none' }} />
+          <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '-0.02em', pointerEvents: 'none' }}>
             Aegis Protocol
           </h1>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div data-tauri-drag-region style={{ flex: 1, height: '100%', position: 'relative', zIndex: 5 }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative', zIndex: 10, pointerEvents: 'auto' }}>
           {/* Status Dots cluster */}
           <div style={{ display: 'flex', gap: 12, marginRight: 16 }}>
             {[
@@ -67,58 +80,67 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <Bell size={20} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={() => {}} />
-          <LayoutGrid size={20} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={handleLogout} />
+          <Bell sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => {}} />
+          <LayoutGrid sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={handleLogout} />
+          
+          <div style={{ height: '100%', marginLeft: 8 }}>
+            <WindowControls />
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* Desktop Sidebar (Adapted from Mobile Bottom Nav) */}
+        {/* Sidebar Nav */}
         <nav style={{
-          width: 80, flexShrink: 0, background: 'rgba(17, 20, 19, 0.6)', backdropFilter: 'blur(10px)',
+          width: 80, flexShrink: 0, background: 'var(--bg-card)',
           borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '24px 0', gap: 32, zIndex: 40
+          padding: '24px 0', gap: 32, zIndex: 999, position: 'relative', pointerEvents: 'auto'
         }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
+            
+            const handleTabClick = () => {
+              console.log(`Navigation: Switching to ${tab.id}`);
+              setActiveTab(tab.id);
+            };
 
             // Special styling for the center 'Capture' button from mobile
             if (tab.id === 'capture') {
               return (
-                <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.15s' }}>
-                   <div style={{
-                     width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-container)',
-                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                     boxShadow: '0 0 20px rgba(113, 217, 180, 0.2)', border: '1px solid rgba(113, 217, 180, 0.3)'
-                   }}>
-                     <Icon size={22} color="var(--accent-primary)" />
-                   </div>
-                   <span style={{ fontSize: 10, fontFamily: 'Inter', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 8, color: 'var(--accent-primary)' }}>
-                     {tab.label}
-                   </span>
-                </div>
-              );
-            }
-
-            return (
-              <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
-                <Icon size={22} color={active ? 'var(--accent-primary)' : 'rgba(225, 231, 226, 0.4)'} strokeWidth={active ? 2.5 : 2} style={{ marginBottom: 4 }} />
-                <span style={{ 
-                  fontSize: 10, fontFamily: 'Inter', fontWeight: active ? 700 : 500, textTransform: 'uppercase', 
-                  letterSpacing: '0.1em', color: active ? 'var(--accent-primary)' : 'rgba(225, 231, 226, 0.4)' 
-                }}>
-                  {tab.label}
-                </span>
-              </div>
+                <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.15s', pointerEvents: 'auto' }}>
+                    <div style={{
+                      width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-container)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', border: '1px solid var(--border)'
+                    }}>
+                      <Icon sx={{ fontSize: 24, color: 'var(--accent-primary)' }} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 8, color: 'var(--accent-primary)' }}>
+                      {tab.label}
+                    </span>
+                 </div>
+               );
+             }
+ 
+             return (
+               <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', opacity: active ? 1 : 0.4, pointerEvents: 'auto' }}>
+                 <Icon sx={{ fontSize: 24, color: active ? 'var(--accent-primary)' : 'var(--text-muted)' }} />
+                 <span style={{ 
+                   fontSize: 10, fontWeight: active ? 700 : 500, textTransform: 'uppercase', 
+                   letterSpacing: '0.1em', color: active ? 'var(--accent-primary)' : 'var(--text-muted)' 
+                 }}>
+                   {tab.label}
+                 </span>
+               </div>
             );
           })}
         </nav>
 
         {/* Content Area */}
-        <main style={{ flex: 1, overflowY: 'auto', position: 'relative', background: 'var(--bg-primary)' }}>
+        <main style={{ flex: 1, overflowY: 'auto', position: 'relative', background: 'var(--bg-primary)', zIndex: 10, pointerEvents: 'auto' }}>
           <div style={{ display: activeTab === 'capture' ? 'block' : 'none', height: '100%' }}>
             <CapturePage />
           </div>

@@ -92,6 +92,54 @@ VITE_SUPABASE_ANON_KEY="..."
 
 The application is heavily consolidated for rapid deployment.
 
+## 🛡️ Development & Branching
+
+This repository follows a multi-platform release strategy:
+
+*   **`main` / `dev`**: Default development branches for the Desktop iteration.
+*   **`sodium`**: Dedicated production branch for the **Desktop Build** (Windows/macOS/Linux).
+*   **`mobile-android` / `mobile-ios`**: For the mobile iterations of the Aegis Protocol, please refer to their respective platform branches.
+
+---
+
+## 🛠️ Performance & Security
+
+Aegis Protocol is built on a high-concurrency stack designed for local-first cryptographic operations:
+
+*   **Tauri (Rust)**: High-performance system interface with a minimal memory footprint.
+*   **Vite + React (TS)**: Blazing fast frontend with strict type safety.
+*   **Supabase**: Robust authentication and operation auditing.
+*   **Python (Orchestrated)**: Specialized ML and CV engines managed by the Rust backend for tasks like watermarking and redaction.
+
+---
+
+## 🏗️ Getting Started
+
+### Prerequisites
+
+*   **Rust**: Stable toolchain via `rustup`.
+*   **Node.js**: v18+ for the frontend and CLI.
+*   **Python**: 3.10+ with `aegis_api` dependencies installed.
+
+### Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/saket/aegis-protocol.git
+
+# Install frontend dependencies
+npm install
+
+# Run in Development Mode
+npm run tauri dev
+```
+
+---
+
+## ⚖️ License
+
+Aegis Protocol is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
 ### 1. Prerequisites
 - **Node.js (v18+)**
 - **Rust Toolchain** (via rustup)

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import logo from '../assets/logo.png';
+import WindowControls from '../components/WindowControls';
+import { Google } from '@mui/icons-material';
 
 
 export default function Auth() {
@@ -57,15 +59,23 @@ export default function Auth() {
       height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', 
       background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' 
     }}>
-      {/* Decorative Background Elements */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, var(--accent-blue) 0%, transparent 70%)', opacity: 0.05, filter: 'blur(100px)' }} />
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, var(--accent-gold) 0%, transparent 70%)', opacity: 0.05, filter: 'blur(100px)' }} />
+      {/* Top Header & Window Controls for Auth */}
+      <div 
+        data-tauri-drag-region 
+        style={{ 
+          position: 'absolute', top: 0, left: 0, right: 0, height: 64, 
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8,
+          zIndex: 100
+        }}
+      >
+        <WindowControls />
+      </div>
 
-      <div className="panel fade-in" style={{ width: 440, padding: 48, textAlign: 'center', border: '1px solid var(--border)', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.1)' }}>
+      <div className="panel fade-in" style={{ width: 440, padding: 48, textAlign: 'center', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 0 }}>
         <div style={{ marginBottom: 40 }}>
           <div style={{ 
-            display: 'inline-flex', padding: 20, borderRadius: 24, background: 'var(--bg-secondary)', 
-            marginBottom: 24, boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' 
+            display: 'inline-flex', padding: 20, borderRadius: 0, background: 'var(--accent-container)', 
+            marginBottom: 24, border: '1px solid var(--border)'
           }}>
             <img src={logo} alt="Aegis Logo" style={{ width: 84, height: 84, objectFit: 'contain' }} />
           </div>
@@ -88,17 +98,12 @@ export default function Auth() {
             }}
           >
             {loading ? (
-              <div className="spin" style={{ width: 20, height: 20, border: '2px solid #e5e7eb', borderTopColor: '#4285F4', borderRadius: '50%' }} />
+              <div className="spin" style={{ width: 20, height: 20, border: '2px solid var(--border)', borderTopColor: 'var(--accent-primary)', borderRadius: '50%' }} />
             ) : (
-              <svg width="20" height="20" viewBox="0 0 20 20">
-                <path d="M19.6 10.23c0-.66-.06-1.29-.17-1.91H10v3.61h5.38a4.61 4.61 0 0 1-2 3.02v2.51h3.24c1.89-1.75 2.98-4.32 2.98-7.23z" fill="#4285F4"/>
-                <path d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.75-5.59-4.12H1.36v2.6A9.99 9.99 0 0 0 10 20z" fill="#34A853"/>
-                <path d="M4.41 11.91c-.2-.6-.31-1.23-.31-1.91s.11-1.31.31-1.91V5.5H1.36A9.99 9.99 0 0 0 0 10c0 1.63.39 3.17 1.08 4.54l3.33-2.63z" fill="#FBBC05"/>
-                <path d="M10 3.94c1.47 0 2.79.5 3.82 1.49l2.88-2.88A9.95 9.95 0 0 0 10 0C6.18 0 2.87 2.14 1.36 5.5l3.05 2.41c.79-2.37 2.99-4.12 5.59-4.12z" fill="#EA4335"/>
-              </svg>
+              <Google sx={{ fontSize: 20, color: 'var(--accent-primary)' }} />
             )}
-            <span style={{ fontWeight: 600 }}>
-              {loading ? 'Connecting to Identity Provider...' : 'Sign in with Google'}
+            <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {loading ? 'AUTHENTICATING...' : 'SIGN IN WITH GOOGLE'}
             </span>
           </button>
         </div>
@@ -112,17 +117,17 @@ export default function Auth() {
         <form onSubmit={handleEmailAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
           <input 
             type="email" 
-            placeholder="operative@aegis.local" 
+            placeholder="OPERATIVE_ID" 
             value={email}
             onChange={e => setEmail(e.target.value)}
-            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 0, border: '1px solid var(--border)', background: 'var(--bg-card-high)', color: 'var(--text-primary)', outline: 'none', fontSize: 13 }}
           />
           <input 
             type="password" 
-            placeholder="Encryption Key (Password)" 
+            placeholder="ENCRYPTION_KEY" 
             value={password}
             onChange={e => setPassword(e.target.value)}
-            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 0, border: '1px solid var(--border)', background: 'var(--bg-card-high)', color: 'var(--text-primary)', outline: 'none', fontSize: 13 }}
           />
           <button type="submit" disabled={loading} className="btn-primary" style={{ height: 48, marginTop: 8 }}>
              {loading ? 'Processing...' : (isSignUp ? 'Register Terminal' : 'Authenticate')}
@@ -137,9 +142,8 @@ export default function Auth() {
         </p>
 
         {error && (
-          <div style={{ marginTop: 24, padding: '16px', background: error.includes('Check your email') ? 'rgba(113, 217, 180, 0.1)' : 'var(--error-bg)', border: `1px solid ${error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)'}`, borderRadius: '12px', fontSize: 13, color: error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <img src={logo} alt="" style={{ flexShrink: 0, width: 20, height: 20, filter: error.includes('Check your email') ? 'none' : 'grayscale(1)' }} />
-            <div style={{ textAlign: 'left' }}>{error}</div>
+          <div style={{ marginTop: 24, padding: '16px', background: 'var(--bg-card-highest)', border: `1px solid ${error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)'}`, borderRadius: 0, fontSize: 13, color: error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ textAlign: 'left', flex: 1 }}>{error}</div>
           </div>
         )}
 
