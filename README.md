@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="'/Users/montero/Aegis-Protocol/app/src/aegis logo un.png'" width="128" height="auto" alt="Aegis Protocol Logo">
+<img src="app/src/aegis logo un.png" width="128" height="auto" alt="Aegis Protocol Logo">
 
 # Aegis Protocol (Mobile)
 
