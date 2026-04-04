@@ -43,16 +43,6 @@ export default function Dashboard() {
 
   const activeConfig = TABS.find(t => t.id === activeTab)!;
 
-  const getPage = () => {
-    switch (activeTab) {
-      case 'watermark': return <WatermarkPage />;
-      case 'split': return <SplitPage />;
-      case 'combine': return <CombinePage />;
-      case 'redact': return <RedactPage />;
-      case 'history': return <HistoryPage />;
-    }
-  };
-
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--bg-primary)', overflow: 'hidden' }}>
       {/* Sidebar */}
@@ -127,7 +117,11 @@ export default function Dashboard() {
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 28 }}>
-          {getPage()}
+          <div style={{ display: activeTab === 'watermark' ? 'block' : 'none', height: '100%' }}><WatermarkPage /></div>
+          <div style={{ display: activeTab === 'split' ? 'block' : 'none', height: '100%' }}><SplitPage /></div>
+          <div style={{ display: activeTab === 'combine' ? 'block' : 'none', height: '100%' }}><CombinePage /></div>
+          <div style={{ display: activeTab === 'redact' ? 'block' : 'none', height: '100%' }}><RedactPage /></div>
+          <div style={{ display: activeTab === 'history' ? 'block' : 'none', height: '100%' }}><HistoryPage /></div>
         </div>
       </main>
     </div>
