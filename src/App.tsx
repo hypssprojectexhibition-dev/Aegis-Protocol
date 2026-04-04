@@ -12,17 +12,6 @@ export default function App() {
   useThemeSystem(); // Initialize theme
 
   useEffect(() => {
-    const isDev = localStorage.getItem('dev_bypass') === 'true';
-    if (isDev) {
-      setSession({
-        access_token: 'dev', refresh_token: 'dev', expires_in: 999,
-        token_type: 'bearer',
-        user: { id: 'dev-user', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: '' }
-      } as Session);
-      setLoading(false);
-      return;
-    }
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { CRYPTO_API } from '../../lib/api';
-import { Upload, Scissors, Download, RefreshCw, AlertCircle, Info } from 'lucide-react';
+import { Database, HardDrive, Network, ShieldCheck, Download, AlertCircle } from 'lucide-react';
 
-export default function Split() {
+export default function SplitPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [shares, setShares] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [shares, setShares] = useState<string[]>([]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -23,7 +23,7 @@ export default function Split() {
       fd.append('operation', 'encryption');
       fd.append('algorithm', 'vc_grayscale_halftone');
       const res = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: fd });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || `Server returned ${res.status}`); }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       if (data.status !== 'success') throw new Error(data.message || 'Splitting failed');
       setShares(data.shares);
@@ -35,75 +35,117 @@ export default function Split() {
   const dl = (src: string, name: string) => { const a = document.createElement('a'); a.href = src; a.download = name; a.click(); };
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="info-badge">
-        <Info size={18} style={{ color: 'var(--accent-blue)', flexShrink: 0, marginTop: 2 }} />
-        <div>
-          <strong>Visual Cryptography — Split</strong> — Splits a single image into 2 cryptographic noise shares using a (2,2) visual cryptography scheme.
-          Each share looks like random noise on its own. The original image can only be seen when both shares are stacked together.
-          Store each share in a separate location for maximum security.
+    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
+      
+      {/* Left Column: Media Preview */}
+      <section style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="text-label" style={{ color: 'var(--accent-primary)' }}>Visual Crypto Studio</span>
+          <h2 className="text-hero" style={{ fontSize: 32, letterSpacing: '-0.05em' }}>Split into Shares</h2>
         </div>
-      </div>
 
-      {error && (
-        <div style={{ padding: '12px 16px', borderRadius: 8, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <AlertCircle size={16} /> {error}
-        </div>
-      )}
+        {error && (
+          <div style={{ padding: '12px 16px', borderRadius: 8, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Input */}
-        <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="step-number">1</div>
-            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Source Image</span>
+        {/* Bento Image Box */}
+        <label style={{ 
+          flex: 1, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+          background: 'var(--bg-card-highest)', border: '1px solid var(--border)', display: 'block', cursor: 'pointer' 
+        }}>
+          {!preview && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+               <Database size={64} style={{ marginBottom: 16 }} />
+               <p className="font-headline" style={{ fontSize: 18, fontWeight: 800 }}>Select Source to Split</p>
+            </div>
+          )}
+          {preview && (
+            <>
+              <img src={preview} alt="Source" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'grayscale(0.8) brightness(0.7)' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 40%)' }} />
+              <div style={{ position: 'absolute', bottom: 24, left: 24, right: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <p className="text-label" style={{ color: 'rgba(113, 217, 180, 0.8)', fontFamily: 'monospace' }}>HASH: 0X8F2...E4A</p>
+                  <p className="font-headline" style={{ fontSize: 24, fontWeight: 800 }}>{file?.name}</p>
+                </div>
+                <div style={{ background: 'rgba(113, 217, 180, 0.1)', backdropFilter: 'blur(10px)', padding: '4px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(113, 217, 180, 0.2)' }}>
+                  <span className="text-label" style={{ color: 'var(--accent-primary)' }}>Verified</span>
+                </div>
+              </div>
+            </>
+          )}
+          <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+
+      </section>
+
+      {/* Right Column: Process & Controls */}
+      <section style={{ width: 450, padding: 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
+        
+        {/* Fragmenting Progress Section */}
+        <div className="panel" style={{ padding: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ShieldCheck size={20} color="var(--accent-primary)" />
+              <span className="font-headline text-label" style={{ fontWeight: 800 }}>Splitting Nodes</span>
+            </div>
+            <span className="font-headline" style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-primary)' }}>{loading ? '84%' : (shares.length ? '100%' : '0%')}</span>
+          </div>
+          
+          <div style={{ width: '100%', height: 6, background: 'var(--bg-card-highest)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: 'var(--accent-primary)', width: loading ? '84%' : (shares.length ? '100%' : '0%'), boxShadow: '0 0 12px rgba(113,217,180,0.5)', transition: 'width 1s' }} />
           </div>
 
-          <label className="upload-zone" style={{ flex: 1, minHeight: 300 }}>
-            {preview
-              ? <img src={preview} alt="" className="result-img" style={{ position: 'absolute', inset: 0 }} />
-              : <><Upload size={36} style={{ opacity: 0.3, marginBottom: 8 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Click to select image to split</span></>
-            }
-            <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
-          </label>
-
-          <button className="btn-primary" onClick={split} disabled={!file || loading} style={{ width: '100%', height: 48 }}>
-            {loading ? <RefreshCw size={18} className="spin" /> : <Scissors size={18} />}
-            {loading ? 'Splitting...' : 'Split into Shares'}
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+            <span>{loading ? 'Fragmenting...' : (shares.length ? 'Fragmented' : 'Awaiting Input')}</span>
+            <span>{shares.length ? '2/2 SHARDS' : '0/2 SHARDS'}</span>
+          </div>
         </div>
 
-        {/* Output */}
-        <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="step-number">2</div>
-            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Generated Shares</span>
+        {/* Distributed Mesh Destinations */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <span className="text-label">Secure Targets</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+             <div className="hover-target" style={{ aspectRatio: '1/1', background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }}>
+               <HardDrive size={24} color="var(--text-muted)" />
+               <p className="text-label" style={{ fontSize: 11 }}>On-Prem Vault</p>
+             </div>
+             <div className="hover-target" style={{ aspectRatio: '1/1', background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }}>
+               <Network size={24} color="var(--text-muted)" />
+               <p className="text-label" style={{ fontSize: 11 }}>Distributed Mesh</p>
+             </div>
           </div>
+        </div>
 
-          {shares.length > 0 ? (
-            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+        {/* Preview Generated Shares if any */}
+        {shares.length > 0 && (
+          <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+            <span className="text-label">Encrypted Outputs</span>
+            <div style={{ display: 'flex', gap: 16, height: 100 }}>
               {shares.map((s, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Share {String.fromCharCode(65 + i)}</div>
-                  <div className="panel-inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140 }}>
-                    <img src={s} alt="" className="result-img" />
+                <div key={i} onClick={() => dl(s, `share_${i+1}.png`)} className="hover-target" style={{ flex: 1, background: 'var(--bg-card-highest)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+                  <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0'}>
+                    <Download color="var(--accent-primary)" />
                   </div>
-                  <button className="btn-outline" onClick={() => dl(s, `share_${String.fromCharCode(65 + i).toLowerCase()}.png`)} style={{ width: '100%' }}>
-                    <Download size={14} /> Download Share {String.fromCharCode(65 + i)}
-                  </button>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="panel-inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-              <div style={{ textAlign: 'center', opacity: 0.2 }}>
-                <Scissors size={48} />
-                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Shares will appear here</div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Final Action */}
+        <button className="btn-outline" onClick={split} disabled={!file || loading} style={{ width: '100%', height: 64 }}>
+           Initiate Secure Handshake
+        </button>
+
+      </section>
+
     </div>
   );
 }

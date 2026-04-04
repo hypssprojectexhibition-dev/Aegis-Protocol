@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import logo from '../assets/logo.png';
-import { ShieldAlert, Cpu } from 'lucide-react';
+
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -24,10 +27,30 @@ export default function Auth() {
     }
   };
 
-  const handleBypass = () => {
-    localStorage.setItem('dev_bypass', 'true');
-    window.location.reload();
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) { setError("Please enter email and password."); return; }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setError("Check your email for the confirmation link!"); // Note: using error state to show success message temporarily
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (e: any) {
+      setError(e.message || 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // dev bypass removed
 
   return (
     <div style={{ 
@@ -80,23 +103,47 @@ export default function Auth() {
           </button>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24, marginTop: 24 }}>
+          <div style={{ height: 1, background: 'var(--border)', alignSelf: 'center' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Or Email</span>
+          <div style={{ height: 1, background: 'var(--border)', alignSelf: 'center' }} />
+        </div>
+
+        <form onSubmit={handleEmailAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+          <input 
+            type="email" 
+            placeholder="operative@aegis.local" 
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+          />
+          <input 
+            type="password" 
+            placeholder="Encryption Key (Password)" 
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            style={{ width: '100%', height: 48, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+          />
+          <button type="submit" disabled={loading} className="btn-primary" style={{ height: 48, marginTop: 8 }}>
+             {loading ? 'Processing...' : (isSignUp ? 'Register Terminal' : 'Authenticate')}
+          </button>
+        </form>
+
+        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {isSignUp ? 'Already have an account? ' : 'Need access? '}
+          <span onClick={() => setIsSignUp(!isSignUp)} style={{ color: 'var(--accent-primary)', cursor: 'pointer', fontWeight: 700 }}>
+             {isSignUp ? 'Sign In' : 'Sign Up'}
+          </span>
+        </p>
+
         {error && (
-          <div style={{ padding: '16px', background: 'var(--error-bg)', border: '1px solid var(--error)', borderRadius: '12px', fontSize: 13, color: 'var(--error)', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <ShieldAlert size={18} style={{ flexShrink: 0 }} />
+          <div style={{ marginTop: 24, padding: '16px', background: error.includes('Check your email') ? 'rgba(113, 217, 180, 0.1)' : 'var(--error-bg)', border: `1px solid ${error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)'}`, borderRadius: '12px', fontSize: 13, color: error.includes('Check your email') ? 'var(--accent-primary)' : 'var(--error)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <img src={logo} alt="" style={{ flexShrink: 0, width: 20, height: 20, filter: error.includes('Check your email') ? 'none' : 'grayscale(1)' }} />
             <div style={{ textAlign: 'left' }}>{error}</div>
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 32 }}>
-          <div style={{ height: 1, background: 'var(--border)', alignSelf: 'center' }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Or Developer</span>
-          <div style={{ height: 1, background: 'var(--border)', alignSelf: 'center' }} />
-        </div>
 
-        <button onClick={handleBypass} className="btn-outline" style={{ width: '100%', height: 52, background: 'transparent', gap: 12 }}>
-          <Cpu size={18} />
-          Launch Development Instance
-        </button>
 
         <p style={{ marginTop: 40, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Certified Secure Environment • ISO/IEC 27001

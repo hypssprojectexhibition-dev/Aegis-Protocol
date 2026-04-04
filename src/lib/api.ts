@@ -35,3 +35,14 @@ export function startBackendPolling() {
   checkStatus();
   setInterval(checkStatus, 3000);
 }
+
+export async function encodeStega(file: File, secret: string, alpha: number = 1.0) {
+  const fd = new FormData();
+  fd.append('image', file);
+  fd.append('secret_text', secret);
+  fd.append('alpha', alpha.toString());
+  
+  const res = await fetch(`${STEGA_API}/api/encode`, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error(`Server returned ${res.status}`);
+  return await res.json();
+}
