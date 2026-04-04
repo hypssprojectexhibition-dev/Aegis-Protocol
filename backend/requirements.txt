@@ -1,0 +1,33 @@
+# Aegis Protocol - Unified Backend Requirements
+# -------------------------------------------
+# Install all dependencies with: pip install -r requirements.txt
+
+# --- Core Dependencies ---
+numpy
+Pillow
+opencv-python
+
+# --- Web Frameworks & APIs ---
+fastapi
+uvicorn
+python-multipart
+flask
+flask-cors
+
+# --- StegaStamp (Watermarking) ---
+tensorflow>=2.0.0
+bchlib
+
+# --- RedactionPro (AI Redaction) ---
+mediapipe
+ultralytics
+spacy
+pytesseract
+
+# --- External Requirements (Manual Setup) ---
+# 1. Tesseract OCR:
+#    Windows: Download from https://github.com/UB-Mannheim/tesseract/wiki
+#    Linux: sudo apt install tesseract-ocr
+#
+# 2. Spacy Natural Language Model:
+#    Run: python -m spacy download en_core_web_md
