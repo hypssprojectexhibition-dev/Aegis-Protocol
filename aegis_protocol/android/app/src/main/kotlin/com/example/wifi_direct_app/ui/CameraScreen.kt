@@ -67,6 +67,17 @@ fun CameraScreen(
             e.printStackTrace()
         }
     }
+    
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            try {
+                val cameraProvider = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+                cameraProvider.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
@@ -115,6 +126,13 @@ fun CameraScreen(
                             object : ImageCapture.OnImageSavedCallback {
                                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                     isCapturing = false
+                                    // Safely unbind camera HAL before the CameraScreen surface is ripped from the UI
+                                    try {
+                                        val cameraProvider = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+                                        cameraProvider.unbindAll()
+                                    } catch (e: Exception) {
+                                        // Ignore
+                                    }
                                     onImageCaptured(photoFile.absolutePath)
                                 }
                                 override fun onError(exc: ImageCaptureException) {

@@ -361,7 +361,7 @@ class MainActivity : ComponentActivity() {
     private fun sendFile() {
         val path = viewModel.uiState.value.capturedImagePath ?: return
         
-        viewModel.processAndPrepareShares(path) { s2Path ->
+        viewModel.processAndPrepareShares(path, applicationContext.filesDir) { s2Path ->
             if (targetIpAddress != null) {
                 CoroutineScope(Dispatchers.IO).launch {
                     val success = fileTransferService.sendData(targetIpAddress!!, s2Path)
@@ -387,6 +387,18 @@ class MainActivity : ComponentActivity() {
         // Disconnect WiFi Direct group so next connection is fresh
         wifiDirectManager.disconnect { _ ->
             targetIpAddress = null
+            
+            // Clean up old .hypss files from internal storage to save space
+            try {
+                applicationContext.filesDir.listFiles()?.forEach {
+                    if (it.name.endsWith(".hypss") || it.name.startsWith("share")) {
+                        it.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore cleanup errors
+            }
+            
             viewModel.resetForNewTransfer()
             
             // Re-trigger peer discovery for next transfer
@@ -403,6 +415,8 @@ class MainActivity : ComponentActivity() {
                         wifiDirectManager.requestPeers { }
                     }
                 }
+            } else {
+                viewModel.updateStatusMessage("Discovery failed: Turn ON Location (GPS) & WiFi.")
             }
         }
     }

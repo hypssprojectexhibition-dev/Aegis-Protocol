@@ -35,9 +35,9 @@ class FileReceiverService(private val context: Context) {
                     val client = serverSocket!!.accept()
                     Log.d(TAG, "Client connected, receiving data...")
 
-                    // Save directly to a .jpg file in app's external files dir
-                    val fileName = "received_share_${System.currentTimeMillis()}.png"
-                    val file = File(context.getExternalFilesDir(null), fileName)
+                    // Save directly to a .hypss file in app's internal files dir
+                    val fileName = "received_share_${System.currentTimeMillis()}.hypss"
+                    val file = File(context.filesDir, fileName)
                     val outputStream = java.io.FileOutputStream(file)
 
                     val inputStream: InputStream = client.getInputStream()

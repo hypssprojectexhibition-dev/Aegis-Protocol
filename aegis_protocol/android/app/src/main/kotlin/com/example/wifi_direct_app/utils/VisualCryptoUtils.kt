@@ -1,7 +1,9 @@
 package com.example.wifi_direct_app.utils
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 import kotlin.experimental.xor
 
@@ -93,5 +95,24 @@ object VisualCryptoUtils {
         
         result.setPixels(resultPixels, 0, width, 0, 0, width, height)
         return result
+    }
+
+    /**
+     * Converts a Bitmap into a PNG byte array.
+     */
+    fun bitmapToPngBytes(bitmap: Bitmap): ByteArray {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        val result = stream.toByteArray()
+        stream.close()
+        return result
+    }
+
+    /**
+     * Converts a PNG byte array back into a Bitmap.
+     * Returns null if the byte array cannot be decoded.
+     */
+    fun pngBytesToBitmap(bytes: ByteArray): Bitmap? {
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
 }

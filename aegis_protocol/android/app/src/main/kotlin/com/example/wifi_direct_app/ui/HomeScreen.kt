@@ -256,12 +256,29 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.height(20.dp))
                         Text("Photo Decrypted Successfully! 🎉", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = C.green)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { viewModel.resetForNewTransfer() },
-                            colors = ButtonDefaults.buttonColors(containerColor = C.text)
-                        ) {
-                            Text("Done")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            var saved by remember { mutableStateOf(false) }
+                            val context = LocalContext.current
+                            
+                            Button(
+                                onClick = { 
+                                    if(!saved) {
+                                        viewModel.saveReconstructedImageToGallery(context)
+                                        saved = true
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (saved) C.green else C.accent)
+                            ) {
+                                Text(if (saved) "Saved ✓" else "Save to Gallery", color = Color.White)
+                            }
+                            
+                            Button(
+                                onClick = { viewModel.resetForNewTransfer() },
+                                colors = ButtonDefaults.buttonColors(containerColor = C.text)
+                            ) {
+                                Text("Done")
+                            }
                         }
                     }
                 }

@@ -46,6 +46,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+            
+            <!-- .hypss Custom Container MIME Type -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.hypss" />
+            </intent-filter>
         </activity>
     </application>
 

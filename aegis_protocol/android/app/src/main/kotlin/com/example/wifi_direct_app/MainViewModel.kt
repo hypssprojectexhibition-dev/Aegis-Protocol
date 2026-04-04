@@ -1,6 +1,12 @@
 package com.example.wifi_direct_app
 
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -267,7 +273,7 @@ class MainViewModel : ViewModel() {
                 // try to verify by checking if the share file exists in storage
                 try {
                     val bucket = Supabase.client.storage.from("Ahuja")
-                    val bytes = bucket.downloadPublic("$code.png")
+                    val bytes = bucket.downloadPublic("$code.hypss")
                     if (bytes.isNotEmpty()) {
                         _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = null) }
                         onSuccess()
@@ -296,26 +302,32 @@ class MainViewModel : ViewModel() {
             try {
                 // Try to download the share with the given code from storage. 
                 // If the file exists, the code is valid. This is the single source of truth.
-                val s1Bytes = withContext(Dispatchers.IO) {
+                val s1BytesRaw = withContext(Dispatchers.IO) {
                     val bucket = Supabase.client.storage.from("Ahuja")
-                    bucket.downloadPublic("$code.png")
+                    bucket.downloadPublic("$code.hypss")
                 }
                 
-                if (s1Bytes.isEmpty()) {
+                if (s1BytesRaw.isEmpty()) {
                     _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = "Invalid code. No share found.") }
                     return@launch
                 }
                 
-                Log.d("MainViewModel", "Code verified! Downloaded Share 1: ${s1Bytes.size} bytes")
+                Log.d("MainViewModel", "Code verified! Downloaded Share 1: ${s1BytesRaw.size} bytes")
                 _uiState.update { it.copy(isVerifyingCode = false, isDownloadingShare = true, statusMessage = "Code verified! Reconstructing image...") }
                 
-                // Decode and reconstruct on IO thread
-                val reconstructed = withContext(Dispatchers.IO) {
-                    val s1Bitmap = BitmapFactory.decodeByteArray(s1Bytes, 0, s1Bytes.size)
-                        ?: throw IllegalStateException("Failed to decode Share 1 from cloud")
+                // Decrypt and reconstruct on appropriate threads
+                val reconstructed = withContext(Dispatchers.Default) {
+                    // Unseal (decrypt) the .hypss containers back into PNG byte arrays
+                    val s1PngBytes = com.example.wifi_direct_app.utils.HypssContainer.unseal(s1BytesRaw, code)
+                    val s2Raw = File(share2Path).readBytes()
+                    val s2PngBytes = com.example.wifi_direct_app.utils.HypssContainer.unseal(s2Raw, code)
                     
-                    val s2Bitmap = BitmapFactory.decodeFile(share2Path)
-                        ?: throw IllegalStateException("Failed to decode Share 2 from file at $share2Path")
+                    // Decode to Bitmaps
+                    val s1Bitmap = VisualCryptoUtils.pngBytesToBitmap(s1PngBytes)
+                        ?: throw IllegalStateException("Failed to decode Share 1 PNG")
+                    
+                    val s2Bitmap = VisualCryptoUtils.pngBytesToBitmap(s2PngBytes)
+                        ?: throw IllegalStateException("Failed to decode Share 2 PNG")
                     
                     Log.d("MainViewModel", "Share 1: ${s1Bitmap.width}x${s1Bitmap.height}, Share 2: ${s2Bitmap.width}x${s2Bitmap.height}")
                     
@@ -332,6 +344,15 @@ class MainViewModel : ViewModel() {
                         statusMessage = "Photo reconstructed successfully!"
                     ) 
                 }
+            } catch (e: javax.crypto.AEADBadTagException) {
+                Log.e("MainViewModel", "Verify & reconstruct failed: Invalid OTP (Bad Tag)", e)
+                _uiState.update { 
+                    it.copy(
+                        isVerifyingCode = false, 
+                        isDownloadingShare = false, 
+                        codeVerificationError = "Security Code Invalid"
+                    ) 
+                }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Verify & reconstruct failed", e)
                 _uiState.update { 
@@ -345,26 +366,91 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // --- Visual Cryptography & Supabase Storage ---
+    fun saveReconstructedImageToGallery(context: Context) {
+        val bitmap = _uiState.value.reconstructedBitmap ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resolver = context.contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "SnapDrop_\${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/SnapDrop")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                }
 
-    fun processAndPrepareShares(imagePath: String, onReady: (String) -> Unit) {
+                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { stream ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        contentValues.clear()
+                        contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        resolver.update(uri, contentValues, null, null)
+                    }
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(statusMessage = "Saved to Gallery!") }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to save image to gallery", e)
+            }
+        }
+    }
+
+    // --- Visual Cryptography & Supabase Storage ---
+    
+    fun processAndPrepareShares(imagePath: String, internalFilesDir: File, onReady: (String) -> Unit) {
         _uiState.update { it.copy(isProcessingCrypto = true, statusMessage = "Splitting image into shares...") }
         
         viewModelScope.launch {
             try {
-                // Run heavy bitmap operations on IO thread
-                val (s1File, s2File) = withContext(Dispatchers.IO) {
-                    val originalBitmap = BitmapFactory.decodeFile(imagePath)
+                // Ensure OTP exists so we can use it for encryption immediately
+                val otpCode = _uiState.value.generatedTransferCode ?: (100000..999999).random().toString()
+                if (_uiState.value.generatedTransferCode == null) {
+                    _uiState.update { it.copy(generatedTransferCode = otpCode) }
+                }
+
+                // Run heavy bitmap operations and encryption on Default thread
+                val (s1File, s2File) = withContext(Dispatchers.Default) {
+                    val rawBitmap = BitmapFactory.decodeFile(imagePath)
                         ?: throw IllegalStateException("Failed to decode image at $imagePath")
+                    
+                    // Scale down to max 800px on longest side to keep share files small (~2-3MB)
+                    // This is critical because WiFi Direct uses the WiFi adapter,
+                    // so Supabase upload/download goes through mobile data
+                    val maxDim = 800
+                    val originalBitmap = if (rawBitmap.width > maxDim || rawBitmap.height > maxDim) {
+                        val scale = maxDim.toFloat() / maxOf(rawBitmap.width, rawBitmap.height)
+                        val scaledW = (rawBitmap.width * scale).toInt()
+                        val scaledH = (rawBitmap.height * scale).toInt()
+                        Log.d("MainViewModel", "Scaling image from ${rawBitmap.width}x${rawBitmap.height} to ${scaledW}x${scaledH}")
+                        val scaled = android.graphics.Bitmap.createScaledBitmap(rawBitmap, scaledW, scaledH, true)
+                        rawBitmap.recycle()
+                        scaled
+                    } else {
+                        rawBitmap
+                    }
                     
                     val (s1, s2) = VisualCryptoUtils.splitImage(originalBitmap)
                     
-                    // Save shares to temporary files
-                    val s1F = File.createTempFile("share1_", ".png")
-                    val s2F = File.createTempFile("share2_", ".png")
+                    val s1PngBytes = VisualCryptoUtils.bitmapToPngBytes(s1)
+                    val s2PngBytes = VisualCryptoUtils.bitmapToPngBytes(s2)
                     
-                    s1F.outputStream().use { s1.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                    s2F.outputStream().use { s2.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    // Encrypt shares
+                    val s1HypssBytes = com.example.wifi_direct_app.utils.HypssContainer.seal(s1PngBytes, otpCode)
+                    val s2HypssBytes = com.example.wifi_direct_app.utils.HypssContainer.seal(s2PngBytes, otpCode)
+                    
+                    // Save shares to internal files directory to hide them from MediaScanner
+                    val s1F = File(internalFilesDir, "share1_${System.currentTimeMillis()}.hypss")
+                    val s2F = File(internalFilesDir, "share2_${System.currentTimeMillis()}.hypss")
+                    
+                    s1F.writeBytes(s1HypssBytes)
+                    s2F.writeBytes(s2HypssBytes)
+                    
+                    Log.d("MainViewModel", "Share 1 size: ${s1F.length() / 1024}KB, Share 2 size: ${s2F.length() / 1024}KB")
                     
                     // Recycle bitmaps to free memory
                     originalBitmap.recycle()
@@ -398,13 +484,10 @@ class MainViewModel : ViewModel() {
         
         viewModelScope.launch {
             try {
-                val code = _uiState.value.generatedTransferCode ?: (100000..999999).random().toString()
-                if (_uiState.value.generatedTransferCode == null) {
-                    _uiState.update { it.copy(generatedTransferCode = code) }
-                }
+                val code = _uiState.value.generatedTransferCode ?: throw IllegalStateException("OTP Code must be generated before uploading Share 1.")
                 
                 val bucket = Supabase.client.storage.from("Ahuja")
-                bucket.upload("$code.png", file.readBytes(), upsert = true)
+                bucket.upload("$code.hypss", file.readBytes(), upsert = true)
                 
                 _uiState.update { it.copy(isUploadingShare = false, statusMessage = "Share 1 secure on cloud. Sending Share 2...") }
                 onSuccess()
