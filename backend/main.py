@@ -14,12 +14,17 @@ _stega_ok = False
 _redact_ok = False
 _crypto_ok = False
 
+_stega_err = None
+_redact_err = None
+_crypto_err = None
+
 # Import the existing app objects
 try:
     from stega.aegis_api import app as stega_app
     _stega_ok = True
     print("✅ Stega Hub loaded")
 except Exception as e:
+    _stega_err = str(e)
     print(f"❌ Failed to load Stega: {e}")
     stega_app = FastAPI()
 
@@ -28,6 +33,7 @@ try:
     _redact_ok = True
     print("✅ Redaction Hub loaded")
 except Exception as e:
+    _redact_err = str(e)
     print(f"❌ Failed to load Redaction: {e}")
     redact_app = FastAPI()
 
@@ -36,6 +42,7 @@ try:
     _crypto_ok = True
     print("✅ Crypto Hub loaded")
 except Exception as e:
+    _crypto_err = str(e)
     print(f"❌ Failed to load Crypto: {e}")
     from flask import Flask
     crypto_app = Flask(__name__)
@@ -67,8 +74,11 @@ def health_all():
     return {
         "status": "ok",
         "stega": "ok" if _stega_ok else "error",
+        "stega_error": _stega_err,
         "redact": "ok" if _redact_ok else "error",
+        "redact_error": _redact_err,
         "crypto": "ok" if _crypto_ok else "error",
+        "crypto_error": _crypto_err,
     }
 
 # ── Per-engine health routes (used by frontend indicator polling) ─────────────
