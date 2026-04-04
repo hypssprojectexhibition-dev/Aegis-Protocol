@@ -49,15 +49,15 @@ fn spawn_backend(root: &PathBuf, subdir: &str, script: &str) -> Option<Child> {
     let child = Command::new("python")
         .current_dir(&work_dir)
         .arg(script)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
         .spawn()
         .or_else(|_| {
             Command::new("python3")
                 .current_dir(&work_dir)
                 .arg(script)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
                 .spawn()
         });
 

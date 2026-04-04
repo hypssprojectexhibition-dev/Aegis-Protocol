@@ -4,9 +4,9 @@ import { Minus, Square, X } from 'lucide-react';
 const appWindow = getCurrentWindow();
 
 export default function WindowControls() {
-  const onMinimize = () => appWindow.minimize();
-  const onMaximize = () => appWindow.toggleMaximize();
-  const onClose = () => appWindow.close();
+  const onMinimize = async () => await appWindow.minimize();
+  const onMaximize = async () => await appWindow.toggleMaximize();
+  const onClose = async () => await appWindow.close();
 
   return (
     <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
@@ -44,6 +44,7 @@ export default function WindowControls() {
           opacity: 0.6;
           cursor: pointer;
           transition: all 0.2s;
+          -webkit-app-region: no-drag !important;
         }
         .window-control-btn:hover {
           opacity: 1;

@@ -83,7 +83,11 @@ export default function Dashboard() {
           <Bell sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => {}} />
           <LayoutGrid sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={handleLogout} />
           
-          <div style={{ height: '100%', marginLeft: 8 }}>
+          <div style={{ 
+            display: 'flex', alignItems: 'center', height: '100%', 
+            position: 'relative', zIndex: 1000, pointerEvents: 'auto',
+            marginLeft: 'auto'
+          }}>
             <WindowControls />
           </div>
         </div>

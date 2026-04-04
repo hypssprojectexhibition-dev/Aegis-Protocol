@@ -64,11 +64,13 @@ export default function Auth() {
         data-tauri-drag-region 
         style={{ 
           position: 'absolute', top: 0, left: 0, right: 0, height: 64, 
-          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8,
-          zIndex: 100
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 0,
+          zIndex: 1000, pointerEvents: 'none'
         }}
       >
-        <WindowControls />
+        <div style={{ pointerEvents: 'auto' }}>
+          <WindowControls />
+        </div>
       </div>
 
       <div className="panel fade-in" style={{ width: 440, padding: 48, textAlign: 'center', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 0 }}>
