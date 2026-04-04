@@ -1,184 +1,95 @@
 from PIL import Image
-from flask import Flask, render_template, request, url_for, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-import os
-import base64
-import io
+import os, base64, io
 
 from algo_interface import ALGORITHM_MODULES
 
 app = Flask(__name__)
-CORS(app) # Allow cross-origin requests from Tauri
+CORS(app)
+
+# Ensure working directories exist
+os.makedirs('static/uploads', exist_ok=True)
+os.makedirs('static/output', exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['OUTPUT_FOLDER'] = 'static/output'
 
+
 def image_to_base64(img):
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
-# Route for the main page
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return jsonify({"status": "ok", "engine": "VisualCrypto"})
 
 
-# Route that returns the list of algorithms available
 @app.route('/api/algorithm_list', methods=['GET'])
 def get_algorithms():
-    algorithms = {key: value["name"] for key, value in ALGORITHM_MODULES.items()}  # Extract key and name
+    algorithms = {key: value["name"] for key, value in ALGORITHM_MODULES.items()}
     return jsonify({"algorithms": algorithms})
 
 
-# Route that returns the description of the indicated algorithm
-@app.route('/api/algorithm_description/<algorithm>')
-def get_algorithm_description(algorithm):
-    module = ALGORITHM_MODULES.get(algorithm)
-    if module and "description" in module:
-        return jsonify(module["description"])
-
-    return jsonify({"text": "Description not available.", "links": []})
-
-
-# Route that returns the requirements of the indicated algorithm
-@app.route('/api/algorithm_requirements/<algorithm>/<operation>', methods=['GET'])
-def get_algorithm_requirements(algorithm, operation):
-    try:
-        # Check if the requested algorithm exists
-        if algorithm not in ALGORITHM_MODULES:
-            return jsonify({"error": "Algorithm not found"}), 404
-
-        # Retrieve the algorithm's requirements
-        requirements = ALGORITHM_MODULES[algorithm].get("requirements", {})
-
-        # Check if the requested operation (encryption/decryption) exists
-        if operation not in requirements:
-            return jsonify({"error": "Invalid operation"}), 400
-
-        # Extract the required number of input images and parameters
-        operation_requirements = requirements[operation]
-        num_images = operation_requirements.get("num_images", 1)
-        parameters = operation_requirements.get("parameters", {})
-
-        # Return the JSON response
-        return jsonify({
-            "num_images": num_images,
-            "parameters": parameters
-        })
-
-    except Exception as e:
-        print("Error:", str(e))
-        return jsonify({"error": str(e)}), 500
-
-
-# Process the selected operation
 @app.route('/process', methods=['POST'])
 def process():
     try:
-        operation = request.form['operation']
-        algorithm = request.form['algorithm']
+        operation = request.form.get('operation')
+        algorithm = request.form.get('algorithm', 'vc_grayscale_halftone')
 
-        # Retrieve the algorithm module
         algorithm_module = ALGORITHM_MODULES.get(algorithm)
         if not algorithm_module:
-            error_message = f"Unknown algorithm: {algorithm}"
-            return render_template('error.html', error_message=error_message), 500
+            return jsonify({"status": "error", "message": f"Unknown algorithm: {algorithm}"}), 400
 
-        # Retrieve algorithm requirements for the operation
         requirements = algorithm_module.get("requirements", {}).get(operation, {})
         num_images = requirements.get("num_images", 1)
-        parameters = requirements.get("parameters", {})
+        image_type = algorithm_module.get("image_type", "L")
 
-        # Dynamically retrieve uploaded images based on num_images
-        input_paths = []
+        # Collect uploaded images
+        images = []
         for i in range(1, num_images + 1):
             file = request.files.get(f"image{i}")
             if file and file.filename:
-                save_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-                file.save(save_path)
-                input_paths.append(save_path)
+                img = Image.open(file.stream).convert(image_type)
+                images.append(img)
 
-        # Ensure correct number of images
-        if len(input_paths) != num_images:
-            error_message = f"{operation.capitalize()} requires {num_images} image(s), but {len(input_paths)} provided."
-            return render_template('error.html', error_message=error_message), 500
+        if len(images) != num_images:
+            return jsonify({
+                "status": "error",
+                "message": f"{operation} requires {num_images} image(s), but {len(images)} provided."
+            }), 400
 
-        # Open images
-        images = [Image.open(path).convert(algorithm_module.get("image_type")) for path in input_paths]
-
-        # Extract additional parameters from the form
+        # Extract any extra parameters
+        parameters = requirements.get("parameters", {})
         param_values = {}
         for param_key, param_config in parameters.items():
             if param_config["type"] == "number":
                 param_values[param_key] = int(request.form.get(param_key, param_config.get("default", 0)))
             elif param_config["type"] == "select":
                 param_values[param_key] = request.form.get(param_key, param_config.get("default"))
-            # Here it is possible to add other types of requirements for new schemes
 
-        # Call the appropriate method dynamically
         if operation == "encryption":
-            encrypt_method = algorithm_module.get("encrypt")
-            result = encrypt_method(*images, *param_values.values())  # Pass images first, then only parameter values
-            
-            # Return JSON instead of rendering HTML
+            result = algorithm_module["encrypt"](*images, *param_values.values())
             shares_b64 = [image_to_base64(share) for share in result]
-            return jsonify({
-                "status": "success",
-                "shares": shares_b64
-            })
+            return jsonify({"status": "success", "shares": shares_b64})
 
         elif operation == "decryption":
-            decrypt_method = algorithm_module.get("decrypt")
-            result = decrypt_method(*images, *param_values.values())  # Pass images first, then only parameter values
-            
-            # Return JSON instead of rendering HTML
-            result_b64 = image_to_base64(result)
-            return jsonify({
-                "status": "success",
-                "reconstructed": result_b64
-            })
+            result = algorithm_module["decrypt"](*images, *param_values.values())
+            return jsonify({"status": "success", "reconstructed": image_to_base64(result)})
+
+        else:
+            return jsonify({"status": "error", "message": f"Unknown operation: {operation}"}), 400
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-def save_and_render_shares(*shares, extension, output_folder='output'):
-    share_urls = []
-    download_urls = []
-
-    for i, share in enumerate(shares, start=1):
-        filename = f"share{i}.{extension}"
-        share_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
-
-        # Save shares
-        share.save(share_path)
-
-        # Generate URLs for rendering and downloading
-        share_urls.append(url_for('static', filename=f'{output_folder}/{filename}'))
-        download_urls.append(url_for('static', filename=f'{output_folder}/{filename}'))
-
-    # Render results dynamically. This rendering handles the case where more than 2 shares are generated.
-    return render_template(
-        'enc_result.html',
-        share_urls=share_urls,
-        download_urls=download_urls,
-        zip=zip  # For using zip in the loop of enc_result.html
-    )
-
-
-# Helper function to handle decryption and rendering results
-def save_and_render_decryption_result(result_image, extension, output_folder='output'):
-    result_path = os.path.join(app.config['OUTPUT_FOLDER'], f'decrypted.{extension}')
-    result_image.save(result_path)
-
-    # Render results
-    return render_template(
-        'dec_result.html',
-        result_url=url_for('static', filename=f'{output_folder}/decrypted.{extension}'),
-        result_download=url_for('static', filename=f'{output_folder}/decrypted.{extension}')
-    )
-
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    print("\n" + "=" * 50)
+    print("  VisualCrypto Engine — http://127.0.0.1:5000")
+    print("=" * 50 + "\n")
+    app.run(host="127.0.0.1", port=5000, debug=False)

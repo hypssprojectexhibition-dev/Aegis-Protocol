@@ -1,28 +1,37 @@
 import { useState } from 'react';
 import { useAppStore } from '../lib/store';
 import { useThemeSystem } from '../lib/theme';
-import { 
-  Shield, 
-  Search, 
-  History as HistoryIcon, 
-  LogOut, 
-  Sun, 
-  Moon, 
+import {
+  Stamp,
+  Scissors,
+  Combine,
   EyeOff,
+  History as HistoryIcon,
+  LogOut,
+  Sun,
+  Moon,
   ChevronRight,
-  HelpCircle
 } from 'lucide-react';
-import ProcessPage from './dashboard/Process';
-import VerifyPage from './dashboard/Verify';
-import HistoryPage from './dashboard/History';
+import WatermarkPage from './dashboard/Watermark';
+import SplitPage from './dashboard/Split';
+import CombinePage from './dashboard/CombinePage';
 import RedactPage from './dashboard/Redact';
+import HistoryPage from './dashboard/History';
 import logo from '../assets/logo.png';
 import { supabase } from '../lib/supabase';
 
-type Tab = 'process' | 'verify' | 'redact' | 'history';
+type Tab = 'watermark' | 'split' | 'combine' | 'redact' | 'history';
+
+const TABS: { id: Tab; icon: any; label: string; header: string }[] = [
+  { id: 'watermark', icon: Stamp, label: 'Watermark', header: 'StegaStamp — Invisible Watermarking' },
+  { id: 'split', icon: Scissors, label: 'Split', header: 'Visual Crypto — Split Image into Shares' },
+  { id: 'combine', icon: Combine, label: 'Combine', header: 'Visual Crypto — Reconstruct from Shares' },
+  { id: 'redact', icon: EyeOff, label: 'Redact', header: 'RedactionPro — PII Removal' },
+  { id: 'history', icon: HistoryIcon, label: 'History', header: 'Audit Trail' },
+];
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<Tab>('process');
+  const [activeTab, setActiveTab] = useState<Tab>('watermark');
   const { stegaConnected, cryptoConnected, redactionConnected } = useAppStore();
   const { theme, setTheme } = useThemeSystem();
 
@@ -32,31 +41,13 @@ export default function Dashboard() {
     window.location.reload();
   };
 
-  const NavItem = ({ id, icon: Icon, label }: { id: Tab, icon: any, label: string }) => {
-    const isActive = activeTab === id;
-    return (
-      <button
-        onClick={() => setActiveTab(id)}
-        title={label}
-        style={{
-          width: 52, height: 52, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', marginBottom: 12, border: 'none', cursor: 'pointer',
-          background: isActive ? 'var(--accent-blue)' : 'transparent',
-          color: isActive ? 'white' : 'var(--text-secondary)',
-          boxShadow: isActive ? '0 8px 16px -4px rgba(59, 130, 246, 0.4)' : 'none'
-        }}
-        onMouseEnter={e => !isActive && (e.currentTarget.style.background = 'var(--bg-hover)')}
-        onMouseLeave={e => !isActive && (e.currentTarget.style.background = 'transparent')}
-      >
-        <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-      </button>
-    );
-  };
+  const activeConfig = TABS.find(t => t.id === activeTab)!;
 
   const getPage = () => {
     switch (activeTab) {
-      case 'process': return <ProcessPage />;
-      case 'verify': return <VerifyPage />;
+      case 'watermark': return <WatermarkPage />;
+      case 'split': return <SplitPage />;
+      case 'combine': return <CombinePage />;
       case 'redact': return <RedactPage />;
       case 'history': return <HistoryPage />;
     }
@@ -64,90 +55,80 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--bg-primary)', overflow: 'hidden' }}>
-      {/* Slim Sidebar */}
+      {/* Sidebar */}
       <aside style={{
-        width: 84, background: 'var(--bg-card)', borderRight: '1px solid var(--border)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', zIndex: 10
+        width: 72, background: 'var(--bg-card)', borderRight: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0', flexShrink: 0,
       }}>
-        <div style={{ marginBottom: 48, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))' }}>
-          <img src={logo} alt="" style={{ width: 42, height: 42, objectFit: 'contain' }} />
+        <img src={logo} alt="" style={{ width: 36, height: 36, objectFit: 'contain', marginBottom: 32 }} />
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label}
+                style={{
+                  width: 48, height: 48, borderRadius: 12, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: active ? 'var(--accent-blue)' : 'transparent',
+                  color: active ? 'white' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+              </button>
+            );
+          })}
         </div>
 
-        <div style={{ flex: 1 }}>
-          <NavItem id="process" icon={Shield} label="Aegis Protect" />
-          <NavItem id="verify" icon={Search} label="Aegis Verify" />
-          <NavItem id="redact" icon={EyeOff} label="Aegis Redact" />
-          <NavItem id="history" icon={HistoryIcon} label="Audit Logs" />
-        </div>
-
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title="Toggle Theme"
-            style={{ width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Toggle theme"
+            style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          
-          <button onClick={handleLogout}
-            title="Logout"
-            style={{ width: 44, height: 44, borderRadius: 12, border: 'none', background: 'var(--error-bg)', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <LogOut size={20} />
+          <button onClick={handleLogout} title="Logout"
+            style={{ width: 40, height: 40, borderRadius: 10, border: 'none', background: 'var(--error-bg)', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LogOut size={18} />
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-        {/* Top Header Bar */}
-        <header style={{ 
-          height: 64, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', 
-          padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      {/* Main */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <header style={{
+          height: 52, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)',
+          padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Current Workspace
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Module
             </span>
-            <ChevronRight size={14} style={{ color: 'var(--border)' }} />
-            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {activeTab === 'process' && 'Aegis Protect Engine'}
-              {activeTab === 'verify' && 'Integrity Verification Subsystem'}
-              {activeTab === 'redact' && 'RedactionPro Deployment'}
-              {activeTab === 'history' && 'Immutable Audit Logs'}
+            <ChevronRight size={12} style={{ color: 'var(--border)' }} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {activeConfig.header}
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div className={`status-dot ${stegaConnected ? 'online' : 'offline'}`} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>STEGA</span>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {[
+              { label: 'STEGA', ok: stegaConnected },
+              { label: 'CRYPTO', ok: cryptoConnected },
+              { label: 'REDACT', ok: redactionConnected },
+            ].map(s => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div className={`status-dot ${s.ok ? 'online' : 'offline'}`} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>{s.label}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div className={`status-dot ${cryptoConnected ? 'online' : 'offline'}`} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>CRYPTO</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div className={`status-dot ${redactionConnected ? 'online' : 'offline'}`} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>REDACT</span>
-              </div>
-            </div>
+            ))}
           </div>
         </header>
 
-        {/* Dynamic Page Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '40px', maxWidth: '1800px', margin: '0 auto', width: '100%' }}>
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 28 }}>
           {getPage()}
         </div>
-        
-        {/* Footer Guidance */}
-        <footer style={{ padding: '12px 32px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 12 }}>
-            <HelpCircle size={14} />
-            Need help? Contextual guidance is available in every module.
-          </div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Aegis Protocol Alpha v1.4.0
-          </div>
-        </footer>
       </main>
     </div>
   );
