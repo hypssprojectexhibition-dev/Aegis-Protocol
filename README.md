@@ -36,8 +36,8 @@ Originally started as a hybrid experiment, the project has been fully migrated t
 # Clone the repository
 git clone https://github.com/hypssprojectexhibition-dev/Aegis-Protocol.git
 
-# Navigate to the android module
-cd aegis_protocol/android
+# Navigate to the project root
+cd Aegis-Protocol
 
 # Build the Debug APK
 ./gradlew assembleDebug
@@ -46,7 +46,7 @@ cd aegis_protocol/android
 ./gradlew clean
 ```
 
-**Output Location**: `aegis_protocol/android/app/build/outputs/apk/debug/app-debug.apk`
+**Output Location**: `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
