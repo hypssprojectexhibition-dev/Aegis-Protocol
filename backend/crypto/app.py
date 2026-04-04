@@ -1,16 +1,21 @@
 from PIL import Image
 from flask import Flask, render_template, request, url_for, jsonify
+from flask_cors import CORS
 import os
+import base64
+import io
 
 from algo_interface import ALGORITHM_MODULES
 
 app = Flask(__name__)
+CORS(app) # Allow cross-origin requests from Tauri
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['OUTPUT_FOLDER'] = 'static/output'
 
-# Ensure folders exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+def image_to_base64(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
 # Route for the main page
@@ -115,16 +120,27 @@ def process():
         if operation == "encryption":
             encrypt_method = algorithm_module.get("encrypt")
             result = encrypt_method(*images, *param_values.values())  # Pass images first, then only parameter values
-            return save_and_render_shares(*result, extension=algorithm_module.get("extension"))
+            
+            # Return JSON instead of rendering HTML
+            shares_b64 = [image_to_base64(share) for share in result]
+            return jsonify({
+                "status": "success",
+                "shares": shares_b64
+            })
 
         elif operation == "decryption":
             decrypt_method = algorithm_module.get("decrypt")
             result = decrypt_method(*images, *param_values.values())  # Pass images first, then only parameter values
-            return save_and_render_decryption_result(result, algorithm_module.get("extension"))
+            
+            # Return JSON instead of rendering HTML
+            result_b64 = image_to_base64(result)
+            return jsonify({
+                "status": "success",
+                "reconstructed": result_b64
+            })
 
     except Exception as e:
-        error_message = str(e)
-        return render_template('error.html', error_message=error_message), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 def save_and_render_shares(*shares, extension, output_folder='output'):

@@ -1,312 +1,280 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { STEGA_API, CRYPTO_API } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { 
   Upload, 
-  Shield, 
-  Lock, 
-  Layers, 
+  ShieldCheck, 
   Download, 
+  Layers, 
   RefreshCw, 
-  X, 
-  CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  HelpCircle,
+  Info,
+  ArrowRight
 } from 'lucide-react';
 
-type PipelineStage = 'idle' | 'uploading' | 'watermarking' | 'splitting' | 'done' | 'error';
-
 export default function Process() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [stage, setStage] = useState<PipelineStage>('idle');
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'watermarking' | 'crypting' | 'complete' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
-  const [watermarkCode, setWatermarkCode] = useState('');
+  
+  // Results
   const [stegoB64, setStegoB64] = useState<string | null>(null);
-  const [layerA, setLayerA] = useState<string | null>(null);
-  const [layerB, setLayerB] = useState<string | null>(null);
-  const [residual, setResidual] = useState<string | null>(null);
+  const [shares, setShares] = useState<string[]>([]);
 
-  const pickFile = () => fileRef.current?.click();
-
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setStage('idle');
-    setStegoB64(null);
-    setLayerA(null);
-    setLayerB(null);
-    setResidual(null);
-    setErrorMsg('');
+    if (f) {
+      setFile(f);
+      setPreview(URL.createObjectURL(f));
+      // Reset state
+      setStegoB64(null);
+      setShares([]);
+      setStatus('idle');
+    }
   };
 
-  const runPipeline = async () => {
+  const processImage = async () => {
     if (!file) return;
+    setLoading(true);
+    setStatus('watermarking');
     setErrorMsg('');
 
     try {
-      // --- Stage 1: Watermark ---
-      setStage('watermarking');
-      const code = Math.random().toString(36).substring(2, 9).toUpperCase();
-      setWatermarkCode(code);
-
+      // Step 1: StegaStamp Watermarking
       const fd = new FormData();
       fd.append('image', file);
-      fd.append('secret_text', code);
+      fd.append('secret_text', 'AEGIS_X');
       fd.append('alpha', '1.0');
 
       let stegaRes: Response;
       try {
         stegaRes = await fetch(`${STEGA_API}/api/encode`, { method: 'POST', body: fd });
-      } catch (e) {
-        throw new Error(`Cannot reach StegaStamp engine. Please ensure it is running.`);
+      } catch {
+        throw new Error(`Cannot reach StegaStamp Engine (8000). Please start the backend.`);
       }
 
-      if (!stegaRes.ok) throw new Error(`Watermarking engine returned ${stegaRes.status}`);
+      if (!stegaRes.ok) throw new Error(`Watermarking failed with status ${stegaRes.status}`);
       const stegaData = await stegaRes.json();
       setStegoB64(stegaData.stego);
-      if (stegaData.residual) setResidual(stegaData.residual);
 
-      // --- Stage 2: Split ---
-      setStage('splitting');
-
-      const b64Resp = await fetch(stegaData.stego);
-      const stegoBlob = await b64Resp.blob();
-      const stegoFile = new File([stegoBlob], 'stego.png', { type: 'image/png' });
-
+      // Step 2: Visual Cryptography Splitting
+      setStatus('crypting');
       const vcFd = new FormData();
+      const stegoBlob = await fetch(stegaData.stego).then(r => r.blob());
+      vcFd.append('image1', stegoBlob, 'stego.png');
       vcFd.append('operation', 'encryption');
       vcFd.append('algorithm', 'vc_grayscale_halftone');
-      vcFd.append('image1', stegoFile);
 
-      let splitRes: Response;
+      let vcRes: Response;
       try {
-        splitRes = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: vcFd });
-      } catch (e) {
-        throw new Error(`Cannot reach VisualCrypto engine. Please ensure it is running.`);
+        vcRes = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: vcFd });
+      } catch {
+        throw new Error(`Cannot reach VisualCrypto Engine (5000). Please start the backend.`);
       }
 
-      if (!splitRes.ok) throw new Error(`Splitting engine returned ${splitRes.status}`);
+      if (!vcRes.ok) throw new Error(`Cryptographic splitting failed.`);
+      const vcData = await vcRes.json();
+      setShares(vcData.shares);
 
-      const ts = Date.now();
-      setLayerA(`${CRYPTO_API}/static/output/share1.png?t=${ts}`);
-      setLayerB(`${CRYPTO_API}/static/output/share2.png?t=${ts}`);
-
-      // --- Stage 3: Log to Supabase ---
+      // Step 3: Log to Supabase
       try {
         const { data: userData } = await supabase.auth.getUser();
-        if (userData.user && userData.user.id !== 'dev-user') {
-          await supabase.from('operations').insert({
-            user_id: userData.user.id,
-            watermark_code: code,
-            operation_type: 'protect',
-            status: 'success',
-            created_at: new Date().toISOString(),
-          });
-        }
-      } catch {
-        // Non-critical
+        await supabase.from('operations').insert([{
+          user_id: userData.user?.id || 'dev-user',
+          operation_type: 'protect',
+          watermark_code: 'AEGIS_X',
+          status: 'success'
+        }]);
+      } catch (err) {
+        console.warn('Logging skipped:', err);
       }
 
-      setStage('done');
+      setStatus('complete');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Unknown error');
-      setStage('error');
+      setErrorMsg(err.message || 'An unexpected processing error occurred.');
+      setStatus('error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const reset = () => {
-    setFile(null);
-    setPreview(null);
-    setStage('idle');
-    setStegoB64(null);
-    setLayerA(null);
-    setLayerB(null);
-    setResidual(null);
-    setErrorMsg('');
-    setWatermarkCode('');
-  };
-
-  const downloadImage = (url: string, name: string) => {
+  const downloadImage = (b64: string, name: string) => {
     const link = document.createElement('a');
-    link.href = url;
+    link.href = b64;
     link.download = name;
     link.click();
   };
 
-  const stageLabels: Record<PipelineStage, string> = {
-    idle: 'Ready to Process',
-    uploading: 'Preparing Assets...',
-    watermarking: 'Embedding Secure Watermark...',
-    splitting: 'Generating Cryptographic Shares...',
-    done: 'Protection Complete',
-    error: 'Process Failed',
-  };
-
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Protect Image</h1>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-          Traceably secure your imagery by embedding hidden watermarks and splitting into encrypted shares.
-        </p>
+    <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {/* Top Banner Context */}
+      <div className="info-badge" style={{ background: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+        <HelpCircle size={24} style={{ color: 'var(--accent-blue)', marginTop: 2 }} />
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16, marginBottom: 4 }}>Why protect your images?</div>
+          <p style={{ opacity: 0.8 }}>
+            Aegis Protect combines **invisible steganography** with **visual cryptography**. 
+            First, your image is watermarked to ensure provenance. Then, it is split into two cryptographic "shares." 
+            Neither share contains the full image, making it impossible for a single attacker to view your data.
+          </p>
+        </div>
       </div>
 
-      {/* Global Status Bar */}
-      {stage !== 'idle' && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px',
-          marginBottom: 24, borderRadius: 12,
-          background: stage === 'error' ? 'var(--error-bg)' : stage === 'done' ? 'var(--success-bg)' : 'var(--bg-secondary)',
-          border: `1px solid ${stage === 'error' ? 'var(--error)' : stage === 'done' ? 'var(--success)' : 'var(--border)'}`,
-        }}>
-          {stage !== 'done' && stage !== 'error' ? (
-            <RefreshCw size={18} className="spin" style={{ color: 'var(--accent-blue)' }} />
-          ) : stage === 'done' ? (
-            <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
-          ) : (
-            <AlertCircle size={18} style={{ color: 'var(--error)' }} />
-          )}
-          
-          <span style={{ fontSize: 14, fontWeight: 600, color: stage === 'error' ? 'var(--error)' : stage === 'done' ? 'var(--success)' : 'var(--text-primary)' }}>
-            {stageLabels[stage]}
-          </span>
-
-          {stage === 'done' && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Watermark Code:</span>
-              <code style={{ background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: 4, color: 'var(--accent-blue)', fontWeight: 700, border: '1px solid var(--border)' }}>{watermarkCode}</code>
-            </div>
-          )}
-        </div>
-      )}
-
       {errorMsg && (
-        <div style={{ padding: '12px 16px', marginBottom: 24, borderRadius: 12, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <X size={16} />
-          {errorMsg}
+        <div style={{ padding: '20px 24px', borderRadius: 12, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 14, color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AlertCircle size={20} />
+          <div style={{ fontWeight: 600 }}>Action Required: {errorMsg}</div>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-        {/* Left Column: Input & Watermark */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Input Panel */}
-          <div className="panel" style={{ padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Source Image</div>
-            
-            <input ref={fileRef} type="file" accept="image/*" onChange={onFileSelected} style={{ display: 'none' }} />
-
-            {!preview ? (
-              <div onClick={pickFile} style={{
-                border: '2px dashed var(--border)', borderRadius: 12, padding: '48px 20px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer',
-                transition: 'all 0.2s', background: 'var(--bg-secondary)'
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-blue)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              >
-                <Upload size={32} style={{ color: 'var(--text-muted)', marginBottom: 12 }} />
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)' }}>Click to upload image</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>High resolution PNG/JPG recommended</div>
-              </div>
+      {/* Main Expansive Grid */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr 1fr', 
+        gap: 40,
+        flex: 1,
+        minHeight: 0 // Allow container to shrink
+      }}>
+        
+        {/* Step 1: Upload & Input */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div className="step-number">1</div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Source Material</h2>
+          </div>
+          
+          <label 
+            style={{ 
+              flex: 1, border: '2px dashed var(--border)', borderRadius: 16, 
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all 0.2s', background: preview ? 'transparent' : 'var(--bg-secondary)',
+              position: 'relative', overflow: 'hidden'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-blue)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+          >
+            {preview ? (
+              <img src={preview} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} />
             ) : (
-              <div className="panel-inset" style={{ position: 'relative', overflow: 'hidden', minHeight: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: 400, objectFit: 'contain' }} />
-                <button onClick={pickFile} style={{
-                  position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.6)',
-                  border: 'none', borderRadius: 6, color: 'white', fontSize: 12,
-                  padding: '6px 12px', cursor: 'pointer', backdropFilter: 'blur(4px)'
-                }}>Change</button>
+              <div style={{ textAlign: 'center', opacity: 0.6 }}>
+                <Upload size={48} style={{ marginBottom: 16, color: 'var(--text-muted)' }} />
+                <div style={{ fontWeight: 600 }}>Click to primary source image</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Supports .jpg, .png, .webp (Max 10MB)</div>
               </div>
             )}
+            <input type="file" onChange={handleFileChange} style={{ display: 'none' }} />
+          </label>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-              <button className="btn-primary" onClick={runPipeline}
-                disabled={!file || (stage !== 'idle' && stage !== 'error' && stage !== 'done')}
-                style={{ flex: 1 }}>
-                {stage === 'done' ? <RefreshCw size={16} /> : <Shield size={16} />}
-                {stage === 'done' ? 'Process New' : 'Apply Aegis Protection'}
-              </button>
-              {stage !== 'idle' && (
-                <button onClick={reset} className="btn-outline">
-                  <X size={16} />
-                </button>
-              )}
+          <div style={{ marginTop: 24, padding: '16px', borderRadius: 12, background: 'var(--bg-secondary)', fontSize: 13, border: '1px solid var(--border)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Info size={14} /> HOW IT WORKS
+            </div>
+            Select an image you want to secure. This original file will be processed through our dual-layer protection pipeline.
+          </div>
+        </div>
+
+        {/* Step 2: Protection Engine (In-App Visualization) */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div className="step-number">2</div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Protection Suite</h2>
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ padding: '20px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12 }}>STEGASTAMP ENGINE</div>
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', borderRadius: 12, overflow: 'hidden' }}>
+                {stegoB64 ? (
+                  <img src={stegoB64} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                    {status === 'watermarking' ? <RefreshCw size={32} className="spin" /> : <ShieldCheck size={32} />}
+                  </div>
+                )}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+                {status === 'watermarking' ? 'Embedding invisible provenance code...' : stegoB64 ? '✓ Watermark embedded successfully' : 'Ready to encode'}
+              </div>
+            </div>
+
+            <div style={{ padding: '20px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12 }}>VISUAL CRYPTO ENGINE</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[0, 1].map(i => (
+                  <div key={i} style={{ height: 100, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {shares[i] ? (
+                      <img src={shares[i]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                       <RefreshCw size={16} className={status === 'crypting' ? 'spin' : ''} style={{ opacity: 0.2 }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+                 {status === 'crypting' ? 'Generating cryptographic share layers...' : shares.length > 0 ? '✓ Shares generated successfully' : 'Ready to split'}
+              </div>
             </div>
           </div>
 
-          {/* Watermarked Preview Panel */}
-          {stegoB64 && (
-            <div className="panel fade-in" style={{ padding: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Watermarked Image</div>
-                <button onClick={() => downloadImage(stegoB64, 'aegis_protected.png')} className="btn-outline" style={{ padding: '6px 10px', fontSize: 11, height: 'auto' }}>
-                  <Download size={14} /> Download
-                </button>
-              </div>
-              <div className="panel-inset" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', maxHeight: 300, overflow: 'hidden' }}>
-                <img src={stegoB64} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-              </div>
-              
-              {residual && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}>Visual Residual (10x Amplified)</div>
-                  <div className="panel-inset" style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={residual} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', opacity: 0.7 }} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <button 
+            className="btn-primary" 
+            onClick={processImage} 
+            disabled={!file || loading}
+            style={{ width: '100%', marginTop: 24, padding: '18px' }}
+          >
+            {loading ? <RefreshCw className="spin" size={20} /> : <ShieldCheck size={20} />}
+            {loading ? 'Executing Protection...' : 'Initialize Protection Core'}
+          </button>
         </div>
 
-        {/* Right Column: Cryptographic Shares */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="panel" style={{ padding: 24, minHeight: 400 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 24, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Layered Shares</div>
+        {/* Step 3: Secure Export */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div className="step-number">3</div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Export</h2>
+          </div>
 
-            {!layerA ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 320, color: 'var(--text-muted)', opacity: 0.5 }}>
-                <Lock size={48} style={{ marginBottom: 16, opacity: 0.2 }} />
-                <div style={{ fontSize: 14, fontWeight: 500 }}>Encrypted output pending</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Complete protection to see shares</div>
+          <div className="panel-inset" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24, gap: 24 }}>
+            {status === 'complete' ? (
+              <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg-card)', padding: 12 }}>
+                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textAlign: 'center' }}>FINAL WATERMARKED MASTER</div>
+                   <div style={{ height: 'calc(100% - 24px)' }}>
+                     <img src={stegoB64!} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                   </div>
+                </div>
+                
+                <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                   <button onClick={() => downloadImage(shares[0], 'share_a.png')} className="btn-outline" style={{ height: 52 }}>
+                     <Download size={16} /> Share A
+                   </button>
+                   <button onClick={() => downloadImage(shares[1], 'share_b.png')} className="btn-outline" style={{ height: 52 }}>
+                     <Download size={16} /> Share B
+                   </button>
+                </div>
+                <button onClick={() => downloadImage(stegoB64!, 'protected_master.png')} className="btn-primary" style={{ width: '100%', marginTop: 12 }}>
+                   <Download size={18} /> Download Master
+                </button>
               </div>
             ) : (
-              <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      <Layers size={14} /> Secure Share A
-                    </div>
-                    <button onClick={() => downloadImage(layerA, 'aegis_share_a.png')} className="btn-outline" style={{ padding: '4px 8px', fontSize: 11, height: 'auto' }}>
-                      <Download size={12} /> Save
-                    </button>
-                  </div>
-                  <div className="panel-inset" style={{ padding: 8, display: 'flex', justifyContent: 'center', background: 'var(--bg-secondary)' }}>
-                    <img src={layerA} alt="Share 1" style={{ maxWidth: '100%', borderRadius: 4 }} />
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      <Layers size={14} /> Secure Share B
-                    </div>
-                    <button onClick={() => downloadImage(layerB!, 'aegis_share_b.png')} className="btn-outline" style={{ padding: '4px 8px', fontSize: 11, height: 'auto' }}>
-                      <Download size={12} /> Save
-                    </button>
-                  </div>
-                  <div className="panel-inset" style={{ padding: 8, display: 'flex', justifyContent: 'center', background: 'var(--bg-secondary)' }}>
-                    <img src={layerB!} alt="Share 2" style={{ maxWidth: '100%', borderRadius: 4 }} />
-                  </div>
-                </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+                <Layers size={64} style={{ marginBottom: 24 }} />
+                <div style={{ fontWeight: 700 }}>Awaiting Output</div>
               </div>
             )}
           </div>
+
+          <div style={{ marginTop: 24, padding: '16px', borderRadius: 12, background: 'var(--success-bg)', fontSize: 13, border: '1px solid var(--success)' }}>
+            <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ArrowRight size={14} /> NEXT STEPS
+            </div>
+            Distribute the shares to different secure locations. The image cannot be reconstructed without both files.
+          </div>
         </div>
+
       </div>
     </div>
   );

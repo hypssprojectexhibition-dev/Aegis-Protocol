@@ -1,248 +1,217 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { REDACT_API } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
-import { Upload, EyeOff, Save, RefreshCw, X, Check } from 'lucide-react';
-
-type RedactionStage = 'idle' | 'processing' | 'done' | 'error';
+import { 
+  Upload, 
+  Download, 
+  RefreshCw, 
+  AlertCircle,
+  HelpCircle,
+  ShieldX,
+  CheckCircle,
+  Settings2,
+  Maximize2
+} from 'lucide-react';
 
 export default function Redact() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [redactedImage, setRedactedImage] = useState<string | null>(null);
-  const [stage, setStage] = useState<RedactionStage>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [processingTime, setProcessingTime] = useState('');
-
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Settings
   const [settings, setSettings] = useState({
-    Faces: true,
-    Objects: false,
-    Names: true,
-    Passwords: true,
-    PhoneNumbers: true,
-    Emails: true,
-    Addresses: false,
-    IPAddresses: true
+    faces: true,
+    objects: false,
+    names: true,
+    passwords: true,
+    phone_numbers: true,
+    emails: true,
+    addresses: false,
+    ip_addresses: true
   });
 
-  const toggleSetting = (key: keyof typeof settings) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      setFile(f);
+      setPreview(URL.createObjectURL(f));
+      setResult(null);
+      setError(null);
+    }
+  };
+
+  const handleToggle = (key: keyof typeof settings) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const pickFile = () => fileRef.current?.click();
-
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setRedactedImage(null);
-    setStage('idle');
-    setErrorMsg('');
-  };
-
-  const runRedaction = async () => {
+  const handleRedact = async () => {
     if (!file) return;
-    setStage('processing');
-    setErrorMsg('');
+    setLoading(true);
+    setError(null);
+
+    const fd = new FormData();
+    fd.append('image', file);
+    Object.entries(settings).forEach(([k, v]) => fd.append(k, String(v)));
 
     try {
-      const fd = new FormData();
-      fd.append('image', file);
-      fd.append('faces', settings.Faces.toString());
-      fd.append('objects', settings.Objects.toString());
-      fd.append('names', settings.Names.toString());
-      fd.append('passwords', settings.Passwords.toString());
-      fd.append('phone_numbers', settings.PhoneNumbers.toString());
-      fd.append('emails', settings.Emails.toString());
-      fd.append('addresses', settings.Addresses.toString());
-      fd.append('ip_addresses', settings.IPAddresses.toString());
-
       const res = await fetch(`${REDACT_API}/api/redact`, {
         method: 'POST',
         body: fd
       });
 
-      if (!res.ok) throw new Error(`Redaction engine returned ${res.status}`);
+      if (!res.ok) throw new Error('Redaction engine failure. Check API logs.');
       
       const data = await res.json();
-      if (data.status === 'success') {
-        setRedactedImage(data.redacted_image);
-        setProcessingTime(data.time);
-        setStage('done');
+      setResult(data.redacted_image);
 
-        // Log to Supabase
+      // Log
+      try {
         const { data: userData } = await supabase.auth.getUser();
-        if (userData.user && userData.user.id !== 'dev-user') {
-          await supabase.from('operations').insert({
-            user_id: userData.user.id,
-            operation_type: 'redact',
-            status: 'success',
-            created_at: new Date().toISOString(),
-          });
-        }
-      } else {
-        throw new Error(data.message || 'Redaction failed');
-      }
+        await supabase.from('operations').insert([{
+          user_id: userData.user?.id || 'dev-user',
+          operation_type: 'redact',
+          status: 'success'
+        }]);
+      } catch {}
+
     } catch (err: any) {
-      setErrorMsg(err.message || 'Connection failed');
-      setStage('error');
+      setError(err.message || 'Failed to process redaction');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const reset = () => {
-    setFile(null);
-    setPreview(null);
-    setRedactedImage(null);
-    setStage('idle');
-    setErrorMsg('');
-  };
-
-  const downloadRedacted = () => {
-    if (!redactedImage) return;
-    const link = document.createElement('a');
-    link.href = redactedImage;
-    link.download = `redacted_${file?.name || 'image.png'}`;
-    link.click();
-  };
+  const Option = ({ id, label, icon: Icon }: { id: keyof typeof settings, label: string, icon: any }) => (
+    <label style={{ 
+      display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', borderRadius: 16, 
+      background: settings[id] ? 'var(--bg-card)' : 'var(--bg-secondary)', 
+      border: `1.5px solid ${settings[id] ? 'var(--accent-blue)' : 'var(--border)'}`,
+      cursor: 'pointer', transition: 'all 0.2s', boxShadow: settings[id] ? '0 8px 16px -4px rgba(59, 130, 246, 0.2)' : 'none'
+    }}>
+      <div style={{ color: settings[id] ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+        <Icon size={24} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: settings[id] ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{settings[id] ? 'ACTIVE' : 'INACTIVE'}</div>
+      </div>
+      <div style={{ 
+        width: 24, height: 24, borderRadius: 6, border: '2px solid var(--border)', 
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: settings[id] ? 'var(--accent-blue)' : 'transparent',
+        borderColor: settings[id] ? 'var(--accent-blue)' : 'var(--border)'
+      }}>
+        {settings[id] && <CheckCircle size={16} color="white" />}
+      </div>
+      <input type="checkbox" checked={settings[id]} onChange={() => handleToggle(id)} style={{ display: 'none' }} />
+    </label>
+  );
 
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Redact Information</h1>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-          Automatically detect and mask sensitive information in your images using AI.
-        </p>
+    <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      
+      {/* Contextual Header */}
+      <div className="info-badge" style={{ background: 'rgba(239, 64, 64, 0.05)', borderColor: 'rgba(239, 64, 64, 0.2)' }}>
+        <HelpCircle size={24} style={{ color: 'var(--error)', marginTop: 2 }} />
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16, marginBottom: 4 }}>Privacy first redaction</div>
+          <p style={{ opacity: 0.8 }}>
+            Aegis Redact uses **BERT** and **TFLite/YOLO** models to scan your material for PII (Personally Identifiable Information). 
+            Select filters below to digitally purge sensitive data before distribution. All redactions are applied locally in your secure vault.
+          </p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 32, alignItems: 'start' }}>
-        {/* Settings Sidebar */}
-        <div className="panel" style={{ padding: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 20, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            Redaction Rules
-          </div>
+      {error && (
+        <div style={{ padding: '20px 24px', borderRadius: 12, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 14, color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AlertCircle size={20} />
+          <div style={{ fontWeight: 600 }}>{error}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: 40, flex: 1, minHeight: 0 }}>
+        
+        {/* Settings & Input Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginTop: 8 }}>Visual Detections</div>
-            {(['Faces', 'Objects'] as const).map(key => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{key}</span>
-                <input 
-                  type="checkbox" 
-                  checked={settings[key]} 
-                  onChange={() => toggleSetting(key)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
-                />
-              </label>
-            ))}
+          <div className="panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <div className="step-number" style={{ background: 'var(--error)' }}>1</div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detection Hub</h2>
+            </div>
 
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginTop: 16 }}>Textual Detections</div>
-            {(['Names', 'Passwords', 'PhoneNumbers', 'Emails', 'Addresses', 'IPAddresses'] as const).map(key => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                <input 
-                  type="checkbox" 
-                  checked={settings[key]} 
-                  onChange={() => toggleSetting(key)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
-                />
-              </label>
-            ))}
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1, overflowY: 'auto', paddingRight: 8 }}>
+              <Option id="faces" label="Identity Faces" icon={Settings2} />
+              <Option id="names" label="Legal Names" icon={Settings2} />
+              <Option id="passwords" label="Auth Strings" icon={Settings2} />
+              <Option id="emails" label="Email Paths" icon={Settings2} />
+              <Option id="phone_numbers" label="Contact IDs" icon={Settings2} />
+              <Option id="ip_addresses" label="System IPs" icon={Settings2} />
+              <Option id="objects" label="Classified Obj" icon={Settings2} />
+              <Option id="addresses" label="Geolocations" icon={Settings2} />
+            </div>
 
-          <div style={{ marginTop: 32 }}>
             <button 
               className="btn-primary" 
-              onClick={runRedaction}
-              disabled={!file || stage === 'processing'}
-              style={{ width: '100%' }}
+              onClick={handleRedact} 
+              disabled={!file || loading}
+              style={{ width: '100%', height: 64, marginTop: 32, background: 'var(--error)' }}
             >
-              {stage === 'processing' ? <RefreshCw size={16} className="spin" /> : <EyeOff size={16} />}
-              Apply Redaction
+              {loading ? <RefreshCw className="spin" size={24} /> : <ShieldX size={24} />}
+              <span style={{ fontSize: 18 }}>{loading ? 'Purging PII...' : 'Initiate Redaction'}</span>
             </button>
-            {file && (
-              <button 
-                onClick={reset} 
-                className="btn-outline" 
-                style={{ width: '100%', marginTop: 12, fontSize: 13 }}
-              >
-                Reset
-              </button>
+          </div>
+
+          <div style={{ padding: '24px', borderRadius: 20, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+             <h3 style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 16, textTransform: 'uppercase' }}>Source Input</h3>
+             <label style={{ height: 160, border: '2px dashed var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)' }}>
+                {preview ? (
+                  <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <Upload size={32} style={{ opacity: 0.3 }} />
+                )}
+                <input type="file" onChange={handleFileChange} style={{ display: 'none' }} />
+             </label>
+          </div>
+        </div>
+
+        {/* Massive Result Display */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div className="step-number" style={{ background: 'var(--error)' }}>2</div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sanitized Master</h2>
+          </div>
+
+          <div className="panel-inset" style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {result ? (
+              <div className="fade-in" style={{ width: '100%', height: '100%', padding: 40, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, padding: 24, border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 20, position: 'relative' }}>
+                   <div style={{ position: 'absolute', top: 12, right: 12, background: 'var(--error-bg)', color: 'var(--error)', padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>REDACTED</div>
+                   <img src={result} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    const l = document.createElement('a'); l.href = result; l.download = 'redacted_master.png'; l.click();
+                  }}
+                  className="btn-primary" 
+                  style={{ width: '100%', height: 60, marginTop: 32, background: 'var(--text-primary)' }}
+                >
+                  <Download size={20} /> Download Sanitized Material
+                </button>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', opacity: 0.2 }}>
+                <Maximize2 size={120} strokeWidth={1} style={{ marginBottom: 24 }} />
+                <div style={{ fontSize: 24, fontWeight: 800 }}>Awaiting Sanitization</div>
+                <div style={{ fontSize: 16, marginTop: 12 }}>Select source material and parameters to begin</div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {errorMsg && (
-            <div style={{ padding: '12px 16px', borderRadius: 8, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <X size={16} />
-              {errorMsg}
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            {/* Input Side */}
-            <div className="panel" style={{ padding: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 16, textTransform: 'uppercase' }}>Input Image</div>
-              
-              <input ref={fileRef} type="file" accept="image/*" onChange={onFileSelected} style={{ display: 'none' }} />
-              
-              {!preview ? (
-                <div onClick={pickFile} style={{
-                  border: '2px dashed var(--border)', borderRadius: 12, padding: '60px 20px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer',
-                  transition: 'all 0.2s', background: 'var(--bg-secondary)'
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-blue)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                >
-                  <Upload size={32} style={{ marginBottom: 12, color: 'var(--text-muted)' }} />
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)' }}>Select image to redact</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>JPEG, PNG supported</div>
-                </div>
-              ) : (
-                <div className="panel-inset" style={{ position: 'relative', overflow: 'hidden', height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                  <button onClick={pickFile} style={{
-                    position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.6)',
-                    border: 'none', borderRadius: 6, color: 'white', fontSize: 12,
-                    padding: '6px 12px', cursor: 'pointer', backdropFilter: 'blur(4px)'
-                  }}>Change Image</button>
-                </div>
-              )}
-            </div>
-
-            {/* Output Side */}
-            <div className="panel" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Redacted Result</div>
-                {stage === 'done' && (
-                  <div style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Check size={12} /> Processed in {processingTime}
-                  </div>
-                )}
-              </div>
-
-              {!redactedImage ? (
-                <div className="panel-inset" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, color: 'var(--text-muted)' }}>
-                  <EyeOff size={32} style={{ opacity: 0.2, marginBottom: 12 }} />
-                  <div style={{ fontSize: 13 }}>Redacted result will appear here</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div className="panel-inset" style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={redactedImage} alt="Redacted" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                  </div>
-                  <button onClick={downloadRedacted} className="btn-primary">
-                    <Save size={16} />
-                    Download Redacted Image
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
