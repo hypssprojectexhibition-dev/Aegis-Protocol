@@ -1,90 +1,135 @@
-<p align="center">
-  <img src="src/assets/logo.png" width="128" height="128" alt="Aegis Protocol Logo">
-</p>
+<div align="center">
 
-<h1 align="center">🛡️ Aegis Protocol (Desktop Edition)</h1>
+<img src="src/assets/logo.png" width="160" height="auto" alt="Aegis Protocol Logo">
 
-<p align="center">
-  <strong>Advanced Image Security & Traceability Suite</strong><br>
-  <em>Watermarking • Cryptographic Splitting • AI-Powered Redaction</em>
-</p>
+# 🛡️ Aegis Protocol
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Desktop-blue?style=for-the-badge" alt="Platform Desktop">
-  <img src="https://img.shields.io/badge/Status-Alpha-orange?style=for-the-badge" alt="Status Alpha">
-  <img src="https://img.shields.io/badge/Branch-Sodium-green?style=for-the-badge" alt="Branch Sodium">
-</p>
+**Advanced Image Security, Traceability, & Sanitization Suite**
 
----
+[![Tauri Edge](https://img.shields.io/badge/Tauri-2.0-24C8C6?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
+[![React Ecosystem](https://img.shields.io/badge/React-18.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.75+-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Python Compute](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Supabase Configured](https://img.shields.io/badge/Supabase-Auth-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-> [!IMPORTANT]
-> **Branch Note**: This specific branch (**`sodium`**) is dedicated exclusively to the **Desktop version** of Aegis Protocol. For mobile or web-specific builds, please refer to the appropriate branch.
+*Built meticulously for Desktop environments, fusing Web Technologies with native Rust performance.*
 
-## 🚀 Overview
+</div>
 
-Aegis Protocol is a high-security desktop application built with **Tauri**, **React**, and **Rust**. It provides a unified interface for securing, verifying, and redacting sensitive visual information through three state-of-the-art engines.
+<br>
 
-### 🛡️ 1. Aegis Protect (Steganography)
-Powered by **StegaStamp**, this engine embeds invisible, robust watermarks into images. These watermarks survive digital transformations and allow for provenance tracking even after the image has been screenshotted or re-compressed.
-
-### 🗝️ 2. Aegis Verify (Cryptography)
-Utilizing **Visual Cryptography**, this engine splits an image into multiple noise-like shares. The original content is only visible when these shares are digitally stacked. This ensures that no single storage location holds the full image, preventing unauthorized access.
-
-### 👁️ 3. Aegis Redact (AI-Powered)
-Integrating **RedactionPro**, this engine uses advanced YOLO models and TFLite for real-time detection and masking of sensitive information.
-- **Visual**: Faces, Objects, License Plates.
-- **Textual**: Names, Passwords, Emails, Phone Numbers, IP Addresses.
+Aegis Protocol is a self-contained, high-security desktop application engineered to protect, verify, and sanitize highly sensitive visual information. Built on the modern **Tauri framework**, it bridges a hardware-accelerated **React interface** with three independent **Python Machine Learning engines** running locally on the user's host machine.
 
 ---
 
-## 🛠️ Architecture
+## ⚡ Core Engines
 
-The desktop application is designed as a **self-contained unit**. All backend processing engines have been consolidated into the project root for ease of development and deployment.
+The suite utilizes three distinct Python-based subsystems orchestrated directly by the Rust native layer. 
 
-### 📦 Consolidated Backend Services
-- `backend/stega/`: FastAPI service for StegaStamp (Port 8000)
-- `backend/crypto/`: Flask service for Visual Cryptography (Port 5000)
-- `backend/redaction/`: FastAPI service for RedactionPro (Port 8001)
+### 1. Aegis Protect (Steganography Layer)
+Powered by an implementation of **StegaStamp**, this engine embeds deep neural-network-based watermarks directly into image residuals. 
+- **Resilience**: Watermarks mathematically survive downscaling, lossy compression, and even physical screen-capturing.
+- **Traceability**: Allows administrators to silently inject provenance signatures (e.g., clearance codes) into sensitive documents prior to distribution.
 
----
+### 2. Aegis Verify (Visual Cryptography)
+Implements a strict `(2,2)` Visual Cryptography mesh to protect top-secret blueprints and node schematics.
+- **Data Fragmentation**: Slices a single source image into pseudo-random noise fragments.
+- **Decentralization**: The original media cannot be mathematically reconstructed without possessing all distributed fragments, allowing for Zero-Trust network storage.
 
-## ⚙️ Setup & Development
-
-### Prerequisites
-- [Rust](https://www.rust-lang.org/) (for Tauri core)
-- [Node.js](https://nodejs.org/) (for React frontend)
-- [Python 3.9+](https://www.python.org/) (for AI/ML backends)
-
-### Installation
-1.  **Clone the Repo**:
-    ```bash
-    git clone https://github.com/hypssprojectexhibition-dev/Aegis-Protocol.git -b sodium
-    ```
-2.  **Install Frontend Dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Setup Python Environments**:
-    Create virtual environments in each backend directory and install `requirements.txt`.
-
-### Running the App
-1.  **Start Backends**: Start each service in `backend/` using the instructions in their respective subdirectories.
-2.  **Launch Tauri**:
-    ```bash
-    npm run tauri dev
-    ```
+### 3. Aegis Redact (NLP & AI-Vision Parsing)
+Utilizing ultra-fast **MediaPipe** face extraction, **spaCy** NLP recognition, and **YOLO** object-detection, RedactionPro actively scrubs images.
+- **Military Grade Filtering**: Instantly locates and masks human faces, vehicle plates, localized addresses, IP structures, and passwords in milliseconds.
+- **Secure Handling**: Operates entirely offline—no data leaves the local vault for inference.
 
 ---
 
-## 🎨 Professional UI
+## 🏗️ Architecture Design
 
-Aegis Protocol (Desktop) features a premium, high-fidelity user interface with:
-- **Light/Dark Mode**: Native implementation with unified CSS transitions.
-- **Lucide Icons**: Replaced all legacy emojis with professional SVG iconography.
-- **Logo Integration**: Full branding throughout the workspace.
+Aegis Protocol leverages **Tauri** as its engine orchestrator. Instead of forcing users to manually launch background Python fastAPIs, the Rust binary (`src-tauri/src/lib.rs`) automatically parses the environment, calculates python interpreters, and dynamically spawns all three ML engines in the background, terminating them gracefully when the UI is closed.
+
+```text
+aegis-protocol/
+├── src/                  # React / TypeScript / CSS Frontend
+│   ├── assets/           # Branding & Vectors
+│   ├── lib/              # Zustand State, API polling, Supabase bindings
+│   └── pages/            # 3-Column Obsidian Vault interface views
+├── src-tauri/            # Rust Native Desktop Container
+│   └── src/lib.rs        # Python Instance Life-Cycle Manager
+└── backend/              # Local Compute Engines
+    ├── stega/            # FastAPI Pipeline (Port 8000)
+    ├── crypto/           # Flask Fragmenting (Port 5000)
+    └── redaction/        # FastAPI Scrubbing (Port 8001)
+```
 
 ---
 
-<p align="center">
-  Built with ❤️ for Aegis Protocol. All Rights Reserved.
-</p>
+## 🎨 The Obsidian Design System
+
+Aegis Protocol uses a completely bespoke CSS architecture built natively—rejecting heavy utility frameworks in favor of clean, performant standard CSS mappings.
+
+- **Obsidian Dark Scheme**: Default tactical layout featuring `#0d0f0e` dark backgrounds combined with `#71d9b4` emerald glows and aggressive glass-morphism borders.
+- **Pristine Light Scheme**: An inverse, dynamically togglable light mode leveraging high-contrast greys for hyper-legible environments, automatically tracked in persistent storage.
+
+---
+
+## 🔐 Identity & Authentication (Supabase)
+
+All workflow instances—cryptographic splitting, watermarking, and redactions—are securely logged to a **Supabase PostgreSQL Ledger**, connected directly to individual operative signatures.
+
+The application securely natively supports:
+- **Google Federation**: Robust OAuth bindings configured uniquely to redirect gracefully around Tauri's `localhost` domain.
+- **Email Access Hooks**: Encrypted password backups.
+
+To configure your own node, edit `.env.local`:
+```bash
+VITE_SUPABASE_URL="https://[YOUR_INSTANCE].supabase.co"
+VITE_SUPABASE_ANON_KEY="..."
+```
+
+---
+
+## 🛠️ Development & Deployment
+
+The application is heavily consolidated for rapid deployment.
+
+### 1. Prerequisites
+- **Node.js (v18+)**
+- **Rust Toolchain** (via rustup)
+- **Python 3.9+**
+
+### 2. Dependency Resolution
+Initialize both the JavaScript tooling and the Python background interpreters.
+
+```bash
+# Obtain source
+git clone https://github.com/hypssprojectexhibition-dev/Aegis-Protocol.git
+cd Aegis-Protocol
+
+# Hydrate Javascript
+npm install
+
+# Hydrate Python Compute Nodes
+pip install -r backend/stega/requirements.txt
+pip install -r backend/crypto/requirements.txt
+pip install -r backend/redaction/requirements.txt
+```
+
+### 3. Launching
+Do NOT manually start the Python backends. The Tauri Rust execution script intelligently binds open ports and triggers the child processes automatically.
+
+```bash
+# Start the unified Desktop UI (Development Mode)
+npm run tauri dev
+```
+
+To compile a native executable for professional distribution (`.msi`, `.dmg`, `.AppImage`):
+```bash
+npm run tauri build
+```
+
+---
+
+<div align="center">
+  <p><strong>Certified Secure Environment • ISO/IEC 27001 Prepared</strong></p>
+  <p>Built with precision for the Aegis Protocol.</p>
+</div>
