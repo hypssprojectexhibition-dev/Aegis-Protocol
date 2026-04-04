@@ -2,7 +2,8 @@ import os
 import io
 import time
 import base64
-
+import zipfile
+import urllib.request
 from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +38,52 @@ except Exception:
     bch = bchlib.BCH(BCH_BITS, BCH_POLYNOMIAL)
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'saved_models', 'stegastamp_pretrained')
+
+def ensure_model_exists():
+    """
+    Checks if the StegaStamp model exists locally. 
+    If not, downloads and extracts it from a remote archive.
+    """
+    # Placeholder: Replace with your actual GitHub Release direct link
+    # Example: "https://github.com/USER/REPO/releases/download/v1.0.0/stegastamp_pretrained.zip"
+    DOWNLOAD_URL = "https://REPLACE_WITH_YOUR_GITHUB_RELEASE_LINK_HERE/stegastamp_pretrained.zip"
+    
+    variables_path = os.path.join(MODEL_DIR, 'variables', 'variables.data-00000-of-00001')
+    pb_path = os.path.join(MODEL_DIR, 'saved_model.pb')
+    
+    if os.path.exists(pb_path) and os.path.exists(variables_path):
+        print("[Aegis API] Stega model files found.")
+        return
+
+    print("[Aegis API] Stega model not found. Starting automatic download...")
+    os.makedirs(os.path.dirname(MODEL_DIR), exist_ok=True)
+    
+    zip_path = os.path.join(os.path.dirname(MODEL_DIR), "stegastamp_pretrained.zip")
+    
+    try:
+        if DOWNLOAD_URL == "https://REPLACE_WITH_YOUR_GITHUB_RELEASE_LINK_HERE/stegastamp_pretrained.zip":
+            print("="*60)
+            print("⚠️ ACTION REQUIRED: Missing Stega Model!")
+            print("1. Upload 'stegastamp_pretrained.zip' to a GitHub Release.")
+            print("2. Paste the direct download link into 'backend/stega/aegis_api.py'.")
+            print("="*60)
+            return
+
+        print(f"Downloading model from: {DOWNLOAD_URL}")
+        urllib.request.urlretrieve(DOWNLOAD_URL, zip_path)
+        
+        print("Extracting model files...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(os.path.dirname(MODEL_DIR))
+            
+        print("Cleaning up temporary files...")
+        os.remove(zip_path)
+        print("[Aegis API] Model setup complete.")
+    except Exception as e:
+        print(f"❌ Error during model auto-setup: {e}")
+
+# Run the check before loading
+ensure_model_exists()
 
 print("[Aegis API] Loading TensorFlow graph and weights into memory...")
 sess = tf.InteractiveSession(graph=tf.Graph())
