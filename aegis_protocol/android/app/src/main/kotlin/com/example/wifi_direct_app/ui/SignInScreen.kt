@@ -119,7 +119,18 @@ fun SignInScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedButton(
+                onClick = { viewModel.continueAsGuest() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, C.accent.copy(alpha = 0.5f))
+            ) {
+                Text("Continue as Guest (Bypass Rate Limit)", color = C.accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
             
             TextButton(onClick = { viewModel.toggleAuthScreen() }) {
                 Text("Don't have an account? Sign Up", color = C.textMuted)

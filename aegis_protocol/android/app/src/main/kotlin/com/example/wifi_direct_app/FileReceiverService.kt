@@ -36,7 +36,7 @@ class FileReceiverService(private val context: Context) {
                     Log.d(TAG, "Client connected, receiving data...")
 
                     // Save directly to a .jpg file in app's external files dir
-                    val fileName = "received_image_${System.currentTimeMillis()}.jpg"
+                    val fileName = "received_share_${System.currentTimeMillis()}.png"
                     val file = File(context.getExternalFilesDir(null), fileName)
                     val outputStream = java.io.FileOutputStream(file)
 

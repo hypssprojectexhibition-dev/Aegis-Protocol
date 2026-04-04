@@ -77,6 +77,7 @@ dependencies {
     val supabaseVersion = "2.6.1"
     implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:storage-kt:$supabaseVersion")
     
     // Force older browser library to bypass AGP 8.9.1 / compileSdk 36 requirement
     implementation("androidx.browser:browser") {

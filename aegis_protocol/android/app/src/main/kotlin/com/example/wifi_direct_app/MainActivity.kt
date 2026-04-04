@@ -250,6 +250,7 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 viewModel.updateStatusMessage("${filteredPeers.size} device(s) found")
                             }
+                            // Increased delay to keep it steadier
                             CoroutineScope(Dispatchers.Main).launch {
                                 kotlinx.coroutines.delay(12000)
                                 if (!viewModel.uiState.value.isConnected) startFreshDiscovery()
@@ -287,26 +288,10 @@ class MainActivity : ComponentActivity() {
 
                         fileReceiverService.startServer { _, filePath ->
                             CoroutineScope(Dispatchers.Main).launch {
-                                viewModel.updateStatusMessage("Photo received!")
-                                val savedUri = MediaStoreUtils.saveImageToGallery(this@MainActivity, filePath)
-                                if (savedUri != null) {
-                                    Toast.makeText(this@MainActivity, "Photo saved to Gallery!", Toast.LENGTH_LONG).show()
-                                    try {
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(savedUri, "image/*")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        startActivity(intent)
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                } else {
-                                    Toast.makeText(this@MainActivity, "Received photo, but failed to save.", Toast.LENGTH_LONG).show()
-                                }
-                                
-                                // Auto-cleanup after receive: disconnect and reset for next transfer
-                                kotlinx.coroutines.delay(2000)
-                                disconnectAndReset()
+                                // In Aegis Protocol, received file is Share 2.
+                                // We wait for OTP entry before fetching Share 1 and reconstructing.
+                                viewModel.updateStatusMessage("Share 2 received! Enter the passcode to decrypt.")
+                                viewModel.updateShare2Path(filePath)
                             }
                         }
                         
@@ -376,24 +361,17 @@ class MainActivity : ComponentActivity() {
     private fun sendFile() {
         val path = viewModel.uiState.value.capturedImagePath ?: return
         
-        viewModel.setSending(true)
-        viewModel.updateStatusMessage("Sending...")
-        
-        if (targetIpAddress != null) {
-            CoroutineScope(Dispatchers.IO).launch {
-                val success = fileTransferService.sendData(targetIpAddress!!, path)
-                withContext(Dispatchers.Main) {
-                    viewModel.setSending(false)
-                    if (success) {
-                        viewModel.updateStatusMessage("Sent successfully!")
-                        Toast.makeText(this@MainActivity, "Photo sent!", Toast.LENGTH_SHORT).show()
-                        
-                        // Auto-cleanup after send: disconnect and reset for next transfer
-                        kotlinx.coroutines.delay(2000)
-                        disconnectAndReset()
-                    } else {
-                        viewModel.updateStatusMessage("Send failed")
-                        Toast.makeText(this@MainActivity, "Send failed", Toast.LENGTH_SHORT).show()
+        viewModel.processAndPrepareShares(path) { s2Path ->
+            if (targetIpAddress != null) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val success = fileTransferService.sendData(targetIpAddress!!, s2Path)
+                    withContext(Dispatchers.Main) {
+                        if (success) {
+                            viewModel.updateStatusMessage("Share 2 sent! Waiting for receiver to verify...")
+                        } else {
+                            viewModel.updateStatusMessage("Send failed")
+                            Toast.makeText(this@MainActivity, "Send failed", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,35 +109,52 @@ fun HomeScreen(
 
             if (state.isConnected && state.capturedImagePath != null && state.targetIp != null) {
                 item {
-                    SendBar(
-                        isSending = state.isSending,
-                        isRequesting = state.isRequestingPermission,
-                        onSend = onSendFile
-                    )
+                    if (state.isProcessingCrypto) {
+                        Surface(
+                            color = C.card,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth().height(100.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(color = C.accent, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Encrypting & Splitting...", fontSize = 14.sp, color = C.textMuted)
+                            }
+                        }
+                    } else {
+                        SendBar(
+                            isSending = state.isSending || state.isUploadingShare,
+                            isRequesting = state.isRequestingPermission,
+                            onSend = onSendFile
+                        )
+                    }
                 }
                 
                 // --- Transfer Code Display (auto-generated) ---
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        color = C.card,
-                        shape = RoundedCornerShape(16.dp),
-                        shadowElevation = 1.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                if (state.generatedTransferCode != null) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            color = C.card,
+                            shape = RoundedCornerShape(16.dp),
+                            shadowElevation = 1.dp,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                "Security Code",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = C.textMuted
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            if (state.generatedTransferCode != null) {
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "Security Code",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = C.textMuted
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
                                 Text(
                                     state.generatedTransferCode!!,
                                     fontSize = 36.sp,
@@ -150,15 +168,100 @@ fun HomeScreen(
                                     fontSize = 12.sp,
                                     color = C.textMuted
                                 )
-                            } else {
-                                CircularProgressIndicator(
-                                    color = C.accent,
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Generating code...", fontSize = 12.sp, color = C.textMuted)
                             }
+                        }
+                    }
+                }
+            }
+
+            // --- Receiver Side: Share 2 Received, Waiting for OTP ---
+            if (state.share2Path != null && state.reconstructedBitmap == null) {
+                item {
+                    Surface(
+                        color = C.card,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, C.accent.copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Surface(color = C.accentSoft, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(52.dp)) {
+                                Text("🔒", fontSize = 24.sp, modifier = Modifier.wrapContentSize())
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Received Encrypted Share", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = C.text)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Enter the 6-digit passcode to reconstruct", fontSize = 13.sp, color = C.textMuted)
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            var otpValue by remember { mutableStateOf("") }
+                            OutlinedTextField(
+                                value = otpValue,
+                                onValueChange = { if (it.length <= 6) otpValue = it },
+                                label = { Text("Passcode") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(64.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = C.accent,
+                                    unfocusedBorderColor = C.border
+                                )
+                            )
+                            
+                            if (state.codeVerificationError != null) {
+                                Text(state.codeVerificationError!!, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                            }
+                            
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            Button(
+                                onClick = { 
+                                    viewModel.verifyAndReconstruct(otpValue, state.share2Path!!)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = C.green),
+                                enabled = !state.isVerifyingCode && !state.isDownloadingShare
+                            ) {
+                                if (state.isVerifyingCode || state.isDownloadingShare) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                                } else {
+                                    Text("Verify & Decrypt", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Reconstruction Success ---
+            if (state.reconstructedBitmap != null) {
+                item {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            color = C.card,
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.fillMaxWidth().height(320.dp),
+                            shadowElevation = 4.dp
+                        ) {
+                            Image(
+                                bitmap = state.reconstructedBitmap!!.asImageBitmap(),
+                                contentDescription = "Decrypted photo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text("Photo Decrypted Successfully! 🎉", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = C.green)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.resetForNewTransfer() },
+                            colors = ButtonDefaults.buttonColors(containerColor = C.text)
+                        ) {
+                            Text("Done")
                         }
                     }
                 }

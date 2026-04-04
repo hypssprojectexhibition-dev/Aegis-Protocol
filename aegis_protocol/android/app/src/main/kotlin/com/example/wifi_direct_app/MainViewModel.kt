@@ -1,17 +1,24 @@
 package com.example.wifi_direct_app
 
+import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wifi_direct_app.supabase.Supabase
+import com.example.wifi_direct_app.utils.VisualCryptoUtils
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.postgrest.postgrest
-import kotlinx.coroutines.launch
+import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import java.io.File
 
 data class PeerDevice(val name: String, val address: String, val status: String)
 
@@ -42,7 +49,15 @@ data class MainUiState(
     val isGeneratingCode: Boolean = false,
     val isVerifyingCode: Boolean = false,
     val codeVerificationError: String? = null,
-    val hasAcceptedTransfer: Boolean = false
+    val hasAcceptedPermission: Boolean = false,
+    
+    // Visual Cryptography State
+    val share1Path: String? = null,
+    val share2Path: String? = null,
+    val reconstructedBitmap: android.graphics.Bitmap? = null,
+    val isProcessingCrypto: Boolean = false,
+    val isUploadingShare: Boolean = false,
+    val isDownloadingShare: Boolean = false
 )
 
 class MainViewModel : ViewModel() {
@@ -113,9 +128,16 @@ class MainViewModel : ViewModel() {
                 isGeneratingCode = false,
                 isVerifyingCode = false,
                 codeVerificationError = null,
+                share1Path = null,
+                share2Path = null,
+                reconstructedBitmap = null,
                 statusMessage = "Transfer complete — ready for next"
             )
         }
+    }
+
+    fun updateShare2Path(path: String?) {
+        _uiState.update { it.copy(share2Path = path) }
     }
 
     fun setCapturedImage(path: String?) {
@@ -180,17 +202,21 @@ class MainViewModel : ViewModel() {
                     this.email = email
                     this.password = pass
                 }
-                // Success
                 _uiState.update { it.copy(isSignedUp = true, isAuthLoading = false) }
             } catch (e: Exception) {
-                // Catch any network or Supabase validation errors
                 _uiState.update { 
-                    it.copy(
-                        isAuthLoading = false,
-                        authError = e.message ?: "An unexpected error occurred"
-                    ) 
+                    it.copy(isAuthLoading = false, authError = e.message ?: "An unexpected error occurred") 
                 }
             }
+        }
+    }
+
+    fun continueAsGuest() {
+        _uiState.update { it.copy(isAuthLoading = true, authError = null) }
+        viewModelScope.launch {
+            // Bypass auth or use anonymous sign-in
+            // For rapid dev testing, we mark as signed up
+            _uiState.update { it.copy(isSignedUp = true, isAuthLoading = false) }
         }
     }
 
@@ -216,8 +242,8 @@ class MainViewModel : ViewModel() {
 
     // --- Transfer Code Verification (Receiver Side) ---
     fun verifyTransferCode(code: String, onSuccess: () -> Unit) {
-        if (code.isBlank()) {
-            _uiState.update { it.copy(codeVerificationError = "Please enter the security code") }
+        if (code.isBlank() || code.length != 6) {
+            _uiState.update { it.copy(codeVerificationError = "Please enter a valid 6-digit code") }
             return
         }
         
@@ -236,9 +262,212 @@ class MainViewModel : ViewModel() {
                     _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = "Invalid code. Try again.") }
                 }
             } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(isVerifyingCode = false, codeVerificationError = "Verification failed: ${e.message}")
+                Log.w("MainViewModel", "Postgrest verification failed, attempting storage-based verification", e)
+                // Fallback: If Postgrest fails (e.g. guest mode, no RLS policy), 
+                // try to verify by checking if the share file exists in storage
+                try {
+                    val bucket = Supabase.client.storage.from("Ahuja")
+                    val bytes = bucket.downloadPublic("$code.png")
+                    if (bytes.isNotEmpty()) {
+                        _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = null) }
+                        onSuccess()
+                    } else {
+                        _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = "Invalid code. No share found.") }
+                    }
+                } catch (storageEx: Exception) {
+                    Log.e("MainViewModel", "Storage verification also failed", storageEx)
+                    _uiState.update { 
+                        it.copy(isVerifyingCode = false, codeVerificationError = "Verification failed: ${storageEx.message}")
+                    }
                 }
+            }
+        }
+    }
+    // --- Combined Verify + Reconstruct (single clean flow) ---
+    fun verifyAndReconstruct(code: String, share2Path: String) {
+        if (code.isBlank() || code.length != 6) {
+            _uiState.update { it.copy(codeVerificationError = "Please enter a valid 6-digit code") }
+            return
+        }
+        
+        _uiState.update { it.copy(isVerifyingCode = true, codeVerificationError = null, statusMessage = "Verifying code...") }
+        
+        viewModelScope.launch {
+            try {
+                // Try to download the share with the given code from storage. 
+                // If the file exists, the code is valid. This is the single source of truth.
+                val s1Bytes = withContext(Dispatchers.IO) {
+                    val bucket = Supabase.client.storage.from("Ahuja")
+                    bucket.downloadPublic("$code.png")
+                }
+                
+                if (s1Bytes.isEmpty()) {
+                    _uiState.update { it.copy(isVerifyingCode = false, codeVerificationError = "Invalid code. No share found.") }
+                    return@launch
+                }
+                
+                Log.d("MainViewModel", "Code verified! Downloaded Share 1: ${s1Bytes.size} bytes")
+                _uiState.update { it.copy(isVerifyingCode = false, isDownloadingShare = true, statusMessage = "Code verified! Reconstructing image...") }
+                
+                // Decode and reconstruct on IO thread
+                val reconstructed = withContext(Dispatchers.IO) {
+                    val s1Bitmap = BitmapFactory.decodeByteArray(s1Bytes, 0, s1Bytes.size)
+                        ?: throw IllegalStateException("Failed to decode Share 1 from cloud")
+                    
+                    val s2Bitmap = BitmapFactory.decodeFile(share2Path)
+                        ?: throw IllegalStateException("Failed to decode Share 2 from file at $share2Path")
+                    
+                    Log.d("MainViewModel", "Share 1: ${s1Bitmap.width}x${s1Bitmap.height}, Share 2: ${s2Bitmap.width}x${s2Bitmap.height}")
+                    
+                    val result = VisualCryptoUtils.reconstructImage(s1Bitmap, s2Bitmap)
+                    s1Bitmap.recycle()
+                    s2Bitmap.recycle()
+                    result
+                }
+                
+                _uiState.update { 
+                    it.copy(
+                        reconstructedBitmap = reconstructed,
+                        isDownloadingShare = false,
+                        statusMessage = "Photo reconstructed successfully!"
+                    ) 
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Verify & reconstruct failed", e)
+                _uiState.update { 
+                    it.copy(
+                        isVerifyingCode = false, 
+                        isDownloadingShare = false, 
+                        codeVerificationError = "Failed: ${e.message}"
+                    ) 
+                }
+            }
+        }
+    }
+
+    // --- Visual Cryptography & Supabase Storage ---
+
+    fun processAndPrepareShares(imagePath: String, onReady: (String) -> Unit) {
+        _uiState.update { it.copy(isProcessingCrypto = true, statusMessage = "Splitting image into shares...") }
+        
+        viewModelScope.launch {
+            try {
+                // Run heavy bitmap operations on IO thread
+                val (s1File, s2File) = withContext(Dispatchers.IO) {
+                    val originalBitmap = BitmapFactory.decodeFile(imagePath)
+                        ?: throw IllegalStateException("Failed to decode image at $imagePath")
+                    
+                    val (s1, s2) = VisualCryptoUtils.splitImage(originalBitmap)
+                    
+                    // Save shares to temporary files
+                    val s1F = File.createTempFile("share1_", ".png")
+                    val s2F = File.createTempFile("share2_", ".png")
+                    
+                    s1F.outputStream().use { s1.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    s2F.outputStream().use { s2.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    
+                    // Recycle bitmaps to free memory
+                    originalBitmap.recycle()
+                    s1.recycle()
+                    s2.recycle()
+                    
+                    Pair(s1F, s2F)
+                }
+                
+                _uiState.update { 
+                    it.copy(
+                        share1Path = s1File.absolutePath,
+                        share2Path = s2File.absolutePath,
+                        isProcessingCrypto = false,
+                        statusMessage = "Shares ready. Uploading Share 1..."
+                    ) 
+                }
+                
+                uploadShare1(s1File) {
+                    onReady(s2File.absolutePath)
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Crypto processing failed", e)
+                _uiState.update { it.copy(isProcessingCrypto = false, statusMessage = "Crypto error: ${e.message}") }
+            }
+        }
+    }
+
+    private fun uploadShare1(file: File, onSuccess: () -> Unit) {
+        _uiState.update { it.copy(isUploadingShare = true) }
+        
+        viewModelScope.launch {
+            try {
+                val code = _uiState.value.generatedTransferCode ?: (100000..999999).random().toString()
+                if (_uiState.value.generatedTransferCode == null) {
+                    _uiState.update { it.copy(generatedTransferCode = code) }
+                }
+                
+                val bucket = Supabase.client.storage.from("Ahuja")
+                bucket.upload("$code.png", file.readBytes(), upsert = true)
+                
+                _uiState.update { it.copy(isUploadingShare = false, statusMessage = "Share 1 secure on cloud. Sending Share 2...") }
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isUploadingShare = false, statusMessage = "Upload failed: ${e.message}") }
+            }
+        }
+    }
+
+    fun downloadAndReconstruct(code: String, share2Path: String) {
+        _uiState.update { it.copy(isDownloadingShare = true, statusMessage = "Security code verified. Fetching Share 1...") }
+        
+        viewModelScope.launch {
+            try {
+                // Download Share 1 from Supabase on IO thread
+                val s1Bytes = withContext(Dispatchers.IO) {
+                    val bucket = Supabase.client.storage.from("Ahuja")
+                    bucket.downloadPublic("$code.png")
+                }
+                
+                Log.d("MainViewModel", "Downloaded Share 1: ${s1Bytes.size} bytes")
+                
+                if (s1Bytes.isEmpty()) {
+                    _uiState.update { it.copy(isDownloadingShare = false, statusMessage = "Share 1 download failed: empty data") }
+                    return@launch
+                }
+                
+                // Decode and reconstruct on IO thread to avoid ANR
+                val reconstructed = withContext(Dispatchers.IO) {
+                    val s1Bitmap = BitmapFactory.decodeByteArray(s1Bytes, 0, s1Bytes.size)
+                    if (s1Bitmap == null) {
+                        Log.e("MainViewModel", "Failed to decode Share 1 bitmap from ${s1Bytes.size} bytes")
+                        throw IllegalStateException("Failed to decode Share 1 from cloud")
+                    }
+                    
+                    val s2Bitmap = BitmapFactory.decodeFile(share2Path)
+                    if (s2Bitmap == null) {
+                        s1Bitmap.recycle()
+                        Log.e("MainViewModel", "Failed to decode Share 2 at path: $share2Path")
+                        throw IllegalStateException("Failed to decode Share 2 from file")
+                    }
+                    
+                    Log.d("MainViewModel", "Share 1: ${s1Bitmap.width}x${s1Bitmap.height}, Share 2: ${s2Bitmap.width}x${s2Bitmap.height}")
+                    
+                    val result = VisualCryptoUtils.reconstructImage(s1Bitmap, s2Bitmap)
+                    
+                    // Recycle source bitmaps
+                    s1Bitmap.recycle()
+                    s2Bitmap.recycle()
+                    
+                    result
+                }
+                
+                _uiState.update { 
+                    it.copy(
+                        reconstructedBitmap = reconstructed,
+                        isDownloadingShare = false,
+                        statusMessage = "Photo reconstructed successfully!"
+                    ) 
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Reconstruction failed", e)
+                _uiState.update { it.copy(isDownloadingShare = false, statusMessage = "Reconstruction failed: ${e.message}") }
             }
         }
     }
