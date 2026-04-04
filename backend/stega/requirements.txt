@@ -1,0 +1,9 @@
+# Aegis Stega - Specific Requirements
+numpy
+Pillow
+opencv-python-headless
+fastapi
+uvicorn
+python-multipart
+tensorflow>=2.0.0
+bchlib

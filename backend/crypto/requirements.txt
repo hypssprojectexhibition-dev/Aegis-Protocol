@@ -1,0 +1,4 @@
+# Aegis Crypto - Specific Requirements
+flask
+flask-cors
+numpy

@@ -1,0 +1,11 @@
+# Aegis Redaction - Specific Requirements
+numpy
+Pillow
+opencv-python-headless
+fastapi
+uvicorn
+python-multipart
+mediapipe
+ultralytics
+spacy
+pytesseract
