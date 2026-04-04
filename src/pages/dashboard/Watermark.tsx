@@ -26,6 +26,13 @@ function EmbedTab() {
   const [error, setError] = useState('');
   const [stegoB64, setStegoB64] = useState<string | null>(null);
   const [residual, setResidual] = useState<string | null>(null);
+  const [intensity, setIntensity] = useState<'quality' | 'balanced' | 'rough'>('balanced');
+
+  const INTENSITY_MAP = {
+    quality: 0.45,
+    balanced: 0.65,
+    rough: 1.0,
+  };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -39,7 +46,7 @@ function EmbedTab() {
       const fd = new FormData();
       fd.append('image', file);
       fd.append('secret_text', secret.slice(0, 7));
-      fd.append('alpha', '1.0');
+      fd.append('alpha', INTENSITY_MAP[intensity].toString());
       const res = await fetch(`${STEGA_API}/api/encode`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
@@ -96,6 +103,30 @@ function EmbedTab() {
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Hidden message (max 7 chars)</label>
             <input className="input-field" value={secret} onChange={e => setSecret(e.target.value)} maxLength={7} placeholder="AEGIS" />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Embed Intensity</label>
+              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--accent-blue)', opacity: 0.8 }}>ALPHA: {INTENSITY_MAP[intensity]}</span>
+            </div>
+            <div className="tab-switcher" style={{ width: '100%' }}>
+              {(['quality', 'balanced', 'rough'] as const).map(lvl => (
+                <button
+                  key={lvl}
+                  className={`tab-btn ${intensity === lvl ? 'active' : ''}`}
+                  onClick={() => setIntensity(lvl)}
+                  style={{ fontSize: 10, padding: '10px 4px' }}
+                >
+                  {lvl}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic', opacity: 0.7 }}>
+              {intensity === 'quality' && '★ Higher invisibility, lower robustness'}
+              {intensity === 'balanced' && '★ Optimal balance for standard distribution'}
+              {intensity === 'rough' && '★ Maximum robustness, higher visual noise'}
+            </div>
           </div>
 
           <button className="btn-primary" onClick={encode} disabled={!file || loading} style={{ width: '100%', height: 48 }}>

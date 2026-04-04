@@ -11,6 +11,13 @@ export default function CapturePage() {
   const [secret, setSecret] = useState('AEGIS_771');
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultImg, setResultImg] = useState<string | null>(null);
+  const [intensity, setIntensity] = useState<'quality' | 'balanced' | 'rough'>('balanced');
+
+  const INTENSITY_MAP = {
+    quality: 0.45,
+    balanced: 0.65,
+    rough: 1.0,
+  };
 
   const capture = useCallback(async () => {
     if (!webcamRef.current) return;
@@ -24,7 +31,7 @@ export default function CapturePage() {
       const blob = await res.blob();
       const file = new File([blob], "capture.png", { type: "image/png" });
 
-      const response = await encodeStega(file, secret || 'VAULT', 1.0);
+      const response = await encodeStega(file, secret || 'VAULT', INTENSITY_MAP[intensity]);
       if (response.stego) {
         setResultImg(response.stego);
       }
@@ -157,6 +164,26 @@ export default function CapturePage() {
           <div onClick={toggleMirror} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--text-muted)', width: 80 }}>
             <RefreshCcw sx={{ fontSize: 20 }} />
             <span className="text-label" style={{ marginTop: 8, fontSize: 9 }}>Mirror</span>
+          </div>
+
+          {/* Intensity Selector */}
+          <div style={{ position: 'absolute', bottom: 120, left: '50%', transform: 'translateX(-50%)', width: 240, display: 'flex', flexDirection: 'column', gap: 10 }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
+                <span className="text-label" style={{ fontSize: 9, opacity: 0.8 }}>ENCODER INTENSITY</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--accent-primary)', opacity: 0.8 }}>{INTENSITY_MAP[intensity].toFixed(2)}</span>
+             </div>
+             <div className="tab-switcher" style={{ width: '100%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)' }}>
+                {(['quality', 'balanced', 'rough'] as const).map(lvl => (
+                  <button
+                    key={lvl}
+                    className={`tab-btn ${intensity === lvl ? 'active' : ''}`}
+                    onClick={() => setIntensity(lvl)}
+                    style={{ fontSize: 9, padding: '8px 2px' }}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+            </div>
           </div>
 
         </div>
