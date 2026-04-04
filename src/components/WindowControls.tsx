@@ -15,7 +15,7 @@ export default function WindowControls() {
         className="window-control-btn"
         title="Minimize"
       >
-        <Minus size={16} />
+        <Minus size={18} />
       </button>
       <button 
         onClick={onMaximize}
@@ -29,11 +29,11 @@ export default function WindowControls() {
         className="window-control-btn close"
         title="Close"
       >
-        <X size={16} />
+        <X size={18} />
       </button>
       <style>{`
         .window-control-btn {
-          width: 48px;
+          width: 56px;
           height: 100%;
           display: flex;
           align-items: center;
@@ -41,14 +41,14 @@ export default function WindowControls() {
           background: transparent;
           border: none;
           color: var(--text-primary);
-          opacity: 0.6;
+          opacity: 0.8;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.15s ease;
           -webkit-app-region: no-drag !important;
         }
         .window-control-btn:hover {
           opacity: 1;
-          background: rgba(128, 128, 128, 0.1);
+          background: rgba(128, 128, 128, 0.15);
         }
         .window-control-btn.close:hover {
           background: #e81123;

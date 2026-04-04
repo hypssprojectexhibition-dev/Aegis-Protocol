@@ -2,7 +2,7 @@
 
 <img src="src/assets/logo.png" width="160" height="auto" alt="Aegis Protocol Logo">
 
-# 🛡️ Aegis Protocol
+# Aegis Protocol
 
 **Advanced Image Security, Traceability, & Sanitization Suite**
 

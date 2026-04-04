@@ -8,6 +8,8 @@ import {
   DownloadRounded as Download,
   ErrorRounded as AlertCircle
 } from '@mui/icons-material';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function SplitPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -39,7 +41,25 @@ export default function SplitPage() {
     } finally { setLoading(false); }
   };
 
-  const dl = (src: string, name: string) => { const a = document.createElement('a'); a.href = src; a.download = name; a.click(); };
+  const dl = async (src: string, name: string) => {
+    try {
+      const path = await save({
+        filters: [{ name: 'Image', extensions: ['png'] }],
+        defaultPath: name
+      });
+      if (path) {
+        const base64Data = src.split(',')[1];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        await writeFile(path, bytes);
+      }
+    } catch (err) {
+      console.error("Native save failed", err);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
@@ -93,7 +113,7 @@ export default function SplitPage() {
       <section style={{ width: 450, padding: 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
 
         {/* Fragmenting Progress Section */}
-        <div className="panel" style={{ padding: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <div className="panel" style={{ padding: 24, boxShadow: 'var(--shadow-heavy)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <ShieldCheck sx={{ fontSize: 20, color: 'var(--accent-primary)' }} />
@@ -103,7 +123,7 @@ export default function SplitPage() {
           </div>
 
           <div style={{ width: '100%', height: 6, background: 'var(--bg-card-highest)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: 'var(--accent-primary)', width: loading ? '84%' : (shares.length ? '100%' : '0%'), boxShadow: '0 0 12px rgba(113,217,180,0.5)', transition: 'width 1s' }} />
+            <div style={{ height: '100%', background: 'var(--accent-primary)', width: loading ? '84%' : (shares.length ? '100%' : '0%'), transition: 'width 1s' }} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>

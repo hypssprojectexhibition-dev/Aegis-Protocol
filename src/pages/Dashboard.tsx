@@ -75,7 +75,7 @@ export default function Dashboard() {
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div className={`status-dot ${s.ok ? 'online' : 'offline'}`} />
-                <span className="text-label" style={{ fontSize: 9 }}>{s.label}</span>
+                <span className="text-label" style={{ fontSize: 9, color: 'var(--text-primary)', opacity: 0.8, fontWeight: 700 }}>{s.label}</span>
               </div>
             ))}
           </div>

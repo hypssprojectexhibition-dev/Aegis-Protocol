@@ -5,9 +5,11 @@ import {
   CloudUploadRounded as Upload,
   DownloadRounded as Download,
   DocumentScannerRounded as Scan,
-  CheckCircleRounded as CheckCircle2,
-  ErrorRounded as AlertCircle
+  CheckCircleRounded as CheckCircle2, 
+  ErrorRounded as AlertCircle 
 } from '@mui/icons-material';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function RedactPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -57,7 +59,26 @@ export default function RedactPage() {
     } finally { setLoading(false); }
   };
 
-  const dl = () => { if (result) { const a = document.createElement('a'); a.href = result; a.download = 'aegis_redacted.png'; a.click(); } };
+  const dl = async () => {
+    if (!result) return;
+    try {
+      const path = await save({
+        filters: [{ name: 'Image', extensions: ['png'] }],
+        defaultPath: 'aegis_redacted.png'
+      });
+      if (path) {
+        const base64Data = result.split(',')[1];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        await writeFile(path, bytes);
+      }
+    } catch (err) {
+      console.error("Native save failed", err);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>

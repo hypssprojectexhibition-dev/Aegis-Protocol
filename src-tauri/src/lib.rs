@@ -1,6 +1,6 @@
-use std::process::{Command, Child};
-use std::sync::Mutex;
 use std::path::PathBuf;
+use std::process::{Child, Command};
+use std::sync::Mutex;
 use tauri::{Manager, RunEvent};
 
 struct BackendState {
@@ -92,6 +92,8 @@ pub fn run() {
     }
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(BackendState {
             children: Mutex::new(children),

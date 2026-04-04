@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { PhotoCameraRounded as Camera, FlipCameraIosRounded as RefreshCcw } from '@mui/icons-material';
 import { encodeStega } from '../../lib/api';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function CapturePage() {
   const webcamRef = useRef<Webcam>(null);
@@ -33,6 +35,27 @@ export default function CapturePage() {
     }
   }, [webcamRef, secret]);
 
+  const handleSave = async () => {
+    if (!resultImg) return;
+    try {
+      const path = await save({
+        filters: [{ name: 'Image', extensions: ['png'] }],
+        defaultPath: 'vault_capture.png'
+      });
+      if (path) {
+        const base64Data = resultImg.split(',')[1];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        await writeFile(path, bytes);
+      }
+    } catch (err) {
+      console.error("Native save failed", err);
+    }
+  };
+
   const toggleMirror = () => {
     setIsMirrored(prev => !prev);
   };
@@ -46,7 +69,7 @@ export default function CapturePage() {
         </div>
         <div style={{ marginTop: 24, display: 'flex', gap: 16 }}>
           <button className="btn-outline" style={{ flex: 1 }} onClick={() => setResultImg(null)}>Take Another</button>
-          <a href={resultImg} download="vault_capture.png" className="btn-primary" style={{ flex: 1 }}>Save Local Copy</a>
+          <button className="btn-primary" style={{ flex: 1 }} onClick={handleSave}>Save Local Copy</button>
         </div>
       </div>
     );
