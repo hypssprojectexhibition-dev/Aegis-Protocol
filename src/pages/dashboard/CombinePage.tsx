@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { CRYPTO_API } from '../../lib/api';
-import { Upload, Combine, Download, RefreshCw, AlertCircle, Info } from 'lucide-react';
+import {
+  MergeRounded as Combine,
+  DownloadRounded as Download,
+  ErrorRounded as AlertCircle,
+  InfoRounded as Info,
+  BlurOnRounded as Shard,
+  CheckCircleRounded as CheckCircle,
+} from '@mui/icons-material';
+import { RefreshCw, Upload } from 'lucide-react';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function CombinePage() {
   const [shareA, setShareA] = useState<File | null>(null);
@@ -28,94 +38,226 @@ export default function CombinePage() {
       fd.append('image1', shareA);
       fd.append('image2', shareB);
       fd.append('operation', 'decryption');
-      fd.append('algorithm', 'vc_grayscale_halftone');
+      fd.append('algorithm', 'rg_color_additive_SS');
       const res = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: fd });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || `Server returned ${res.status}`); }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || `Server returned ${res.status}`);
+      }
       const data = await res.json();
       if (data.status !== 'success') throw new Error(data.message || 'Reconstruction failed');
       setResult(data.reconstructed);
     } catch (e: any) {
-      setError(e.message || 'Reconstruction failed');
+      setError(e.message || 'Reconstruction failed. Ensure both shares match.');
     } finally { setLoading(false); }
   };
 
-  const dl = (src: string, name: string) => { const a = document.createElement('a'); a.href = src; a.download = name; a.click(); };
+  const dl = async (src: string, name: string) => {
+    try {
+      const path = await save({
+        filters: [{ name: 'Image', extensions: ['png'] }],
+        defaultPath: name
+      });
+      if (path) {
+        const base64Data = src.split(',')[1];
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        await writeFile(path, bytes);
+      }
+    } catch (err) {
+      console.error('Native save failed', err);
+    }
+  };
+
+  const bothLoaded = shareA && shareB;
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="info-badge">
-        <Info size={18} style={{ color: 'var(--accent-gold)', flexShrink: 0, marginTop: 2 }} />
-        <div>
-          <strong>Visual Cryptography — Combine</strong> — Upload both cryptographic shares (Share A + Share B) to reconstruct the original image.
-          The shares are overlaid using a bitwise OR operation. If either share has been tampered with, the reconstruction will visibly fail.
-        </div>
-      </div>
+    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
 
-      {error && (
-        <div style={{ padding: '12px 16px', borderRadius: 8, background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <AlertCircle size={16} /> {error}
-        </div>
-      )}
+      {/* Left Column: Share Previews */}
+      <section style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: '1px solid var(--border)', background: 'var(--bg-card)' }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Input */}
-        <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="step-number" style={{ background: 'var(--accent-gold)' }}>1</div>
-            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Upload Both Shares</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="text-label" style={{ color: 'var(--accent-gold)' }}>Visual Cryptography</span>
+          <h2 className="text-hero" style={{ fontSize: 32, letterSpacing: '-0.05em' }}>Combine Shards</h2>
+        </div>
+
+        {error && (
+          <div style={{ padding: '12px 16px', background: 'var(--error-bg)', border: '1px solid var(--error)', fontSize: 13, color: 'var(--error)', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <AlertCircle sx={{ fontSize: 16 }} /> {error}
+          </div>
+        )}
+
+        {/* Share Uploads — Side by Side */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1 }}>
+          {/* Share A */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Shard sx={{ fontSize: 14, color: 'var(--accent-gold)' }} />
+              <span className="text-label" style={{ color: 'var(--accent-gold)' }}>SHARD A</span>
+            </div>
+            <label style={{
+              flex: 1,
+              position: 'relative',
+              overflow: 'hidden',
+              background: previewA ? 'transparent' : 'var(--bg-card-highest)',
+              border: `1.5px dashed ${previewA ? 'var(--accent-gold)' : 'var(--border)'}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 220,
+              transition: 'border-color 0.15s',
+            }}>
+              {previewA ? (
+                <>
+                  <img src={previewA} alt="Share A" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%)' }} />
+                  <div style={{ position: 'absolute', bottom: 12, left: 12 }}>
+                    <span className="text-label" style={{ color: 'var(--accent-gold)', fontFamily: 'monospace' }}>SHARD A · {shareA?.name}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                  <Upload size={32} style={{ marginBottom: 8 }} />
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>Upload Shard A</div>
+                </div>
+              )}
+              <input type="file" accept="image/*" onChange={handleA} style={{ display: 'none' }} />
+            </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SHARE A</div>
-              <label className="upload-zone" style={{ flex: 1, minHeight: 200 }}>
-                {previewA
-                  ? <img src={previewA} alt="" className="result-img" style={{ position: 'absolute', inset: 0 }} />
-                  : <Upload size={28} style={{ opacity: 0.3 }} />
-                }
-                <input type="file" accept="image/*" onChange={handleA} style={{ display: 'none' }} />
-              </label>
+          {/* Share B */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Shard sx={{ fontSize: 14, color: 'var(--accent-gold)' }} />
+              <span className="text-label" style={{ color: 'var(--accent-gold)' }}>SHARD B</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SHARE B</div>
-              <label className="upload-zone" style={{ flex: 1, minHeight: 200 }}>
-                {previewB
-                  ? <img src={previewB} alt="" className="result-img" style={{ position: 'absolute', inset: 0 }} />
-                  : <Upload size={28} style={{ opacity: 0.3 }} />
-                }
-                <input type="file" accept="image/*" onChange={handleB} style={{ display: 'none' }} />
-              </label>
+            <label style={{
+              flex: 1,
+              position: 'relative',
+              overflow: 'hidden',
+              background: previewB ? 'transparent' : 'var(--bg-card-highest)',
+              border: `1.5px dashed ${previewB ? 'var(--accent-gold)' : 'var(--border)'}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 220,
+              transition: 'border-color 0.15s',
+            }}>
+              {previewB ? (
+                <>
+                  <img src={previewB} alt="Share B" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%)' }} />
+                  <div style={{ position: 'absolute', bottom: 12, left: 12 }}>
+                    <span className="text-label" style={{ color: 'var(--accent-gold)', fontFamily: 'monospace' }}>SHARD B · {shareB?.name}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                  <Upload size={32} style={{ marginBottom: 8 }} />
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>Upload Shard B</div>
+                </div>
+              )}
+              <input type="file" accept="image/*" onChange={handleB} style={{ display: 'none' }} />
+            </label>
+          </div>
+        </div>
+
+      </section>
+
+      {/* Right Column: Status + Output */}
+      <section style={{ width: 450, padding: 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
+
+        {/* Reconstruction Status */}
+        <div className="panel" style={{ padding: 24, boxShadow: 'var(--shadow-heavy)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Combine sx={{ fontSize: 20, color: 'var(--accent-gold)' }} />
+              <span className="font-headline text-label" style={{ fontWeight: 800 }}>Reconstruction Status</span>
             </div>
+            <span className="font-headline" style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-gold)' }}>
+              {loading ? '72%' : (result ? '100%' : (bothLoaded ? 'READY' : '0%'))}
+            </span>
           </div>
 
-          <button className="btn-primary" onClick={combine} disabled={!shareA || !shareB || loading}
-            style={{ width: '100%', height: 48, background: 'var(--accent-gold)' }}>
-            {loading ? <RefreshCw size={18} className="spin" /> : <Combine size={18} />}
-            {loading ? 'Reconstructing...' : 'Combine Shares'}
+          <div style={{ width: '100%', height: 6, background: 'var(--bg-card-highest)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              background: 'var(--accent-gold)',
+              width: loading ? '72%' : (result ? '100%' : (bothLoaded ? '50%' : '0%')),
+              transition: 'width 0.8s ease-out'
+            }} />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+            <span>{loading ? 'Reconstructing...' : (result ? 'Reconstruction Complete' : (bothLoaded ? 'Ready to Combine' : 'Awaiting Shards'))}</span>
+            <span>{shareA ? '1' : '0'}/{shareB ? '2' : (shareA ? '1' : '0')} SHARDS</span>
+          </div>
+        </div>
+
+        {/* Info Box */}
+        <div className="info-badge" style={{ background: 'rgba(212, 160, 32, 0.05)', borderColor: 'rgba(212, 160, 32, 0.2)' }}>
+          <Info sx={{ fontSize: 18, color: 'var(--accent-gold)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+            Upload both cryptographic shares to reconstruct the original full-color image. The shards are combined using modular addition — if either shard is tampered with, the reconstruction will fail.
+          </div>
+        </div>
+
+        {/* Reconstructed Result Preview */}
+        {result && (
+          <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircle sx={{ fontSize: 16, color: 'var(--success)' }} />
+              <span className="text-label" style={{ color: 'var(--success)' }}>Reconstructed Output</span>
+            </div>
+            <div style={{
+              flex: 1,
+              background: 'var(--bg-card-highest)',
+              border: '1px solid var(--success)',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 140,
+            }}>
+              <img src={result} alt="Reconstructed" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {result && (
+            <button
+              className="btn-primary fade-in"
+              onClick={() => dl(result, 'reconstructed.png')}
+              style={{ width: '100%', height: 48, background: 'var(--accent-gold)' }}
+            >
+              <Download sx={{ fontSize: 18 }} /> Download Reconstructed Image
+            </button>
+          )}
+
+          <button
+            className="btn-primary"
+            onClick={combine}
+            disabled={!shareA || !shareB || loading}
+            style={{ width: '100%', height: 64, background: result ? 'transparent' : undefined, border: result ? '1px solid var(--border)' : 'none', color: result ? 'var(--text-primary)' : undefined }}
+          >
+            {loading
+              ? <><RefreshCw size={18} className="spin" /> Combining Shards...</>
+              : <><Combine sx={{ fontSize: 18 }} /> {result ? 'Recombine Shards' : 'Combine Cryptographic Shards'}</>
+            }
           </button>
         </div>
 
-        {/* Output */}
-        <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="step-number" style={{ background: 'var(--accent-gold)' }}>2</div>
-            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reconstructed Image</span>
-          </div>
-
-          <div className="panel-inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-            {result
-              ? <img src={result} alt="" className="result-img fade-in" />
-              : <div style={{ textAlign: 'center', opacity: 0.2 }}><Combine size={48} /><div style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Reconstructed image will appear here</div></div>
-            }
-          </div>
-
-          {result && (
-            <button className="btn-primary" onClick={() => dl(result, 'reconstructed.png')} style={{ width: '100%' }}>
-              <Download size={16} /> Download Reconstructed Image
-            </button>
-          )}
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

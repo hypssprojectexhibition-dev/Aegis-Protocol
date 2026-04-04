@@ -30,7 +30,7 @@ export default function SplitPage() {
       const fd = new FormData();
       fd.append('image1', file);
       fd.append('operation', 'encryption');
-      fd.append('algorithm', 'vc_grayscale_halftone');
+      fd.append('algorithm', 'rg_color_additive_SS');
       const res = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
@@ -91,7 +91,7 @@ export default function SplitPage() {
           )}
           {preview && (
             <>
-              <img src={preview} alt="Source" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'grayscale(0.8) brightness(0.7)' }} />
+              <img src={preview} alt="Source" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 40%)' }} />
               <div style={{ position: 'absolute', bottom: 24, left: 24, right: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>

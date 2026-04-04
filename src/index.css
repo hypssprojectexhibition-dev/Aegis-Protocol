@@ -21,10 +21,16 @@
     --border: #434946;
     --border-hover: #737875;
 
-    --success: #CBCAD2;
+    --success: #4ade80;
+    --success-bg: rgba(74, 222, 128, 0.08);
     --error: #ee7d77;
+    --error-bg: rgba(238, 125, 119, 0.08);
     --bg-glass: rgba(22, 26, 25, 0.8);
     --bg-surface-tint: rgba(203, 202, 210, 0.05);
+
+    --accent-gold: #D4A020;
+    --accent-blue: #60a5fa;
+    --text-secondary: #9AA09C;
 
     --shadow-tactical: 0 4px 12px rgba(0, 0, 0, 0.5);
     --shadow-heavy: 0 10px 30px rgba(0, 0, 0, 0.7);
@@ -59,8 +65,12 @@
     --shadow-heavy: 0 10px 25px rgba(15, 23, 42, 0.12);
 
     --success: #10B981;
+    --success-bg: #F0FDF4;
     --error: #EF4444;
     --error-bg: #FEF2F2;
+    --accent-gold: #B45309;
+    --accent-blue: #2563EB;
+    --text-secondary: #64748B;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -230,5 +240,129 @@
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  .spin { animation: spinAnim 0.8s linear infinite; }
+  @keyframes spinAnim {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Panel Inset (nested sunken panel) */
+  .panel-inset {
+    background: var(--bg-card-highest);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    position: relative;
+  }
+
+  /* Upload drop zones */
+  .upload-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px dashed var(--border);
+    background: var(--bg-card-highest);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .upload-zone:hover { border-color: var(--border-hover); background: var(--bg-card-high); }
+
+  /* Text input */
+  .input-field {
+    width: 100%;
+    background: var(--bg-card-highest);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: monospace;
+    font-weight: 700;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-field:focus { border-color: var(--border-hover); }
+
+  /* Step Number badge */
+  .step-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    color: var(--text-inverse);
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Info banner */
+  .info-badge {
+    display: flex;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* Hover target card */
+  .hover-target {
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .hover-target:hover {
+    border-color: var(--border-hover) !important;
+    transform: translateY(-1px);
+  }
+
+  /* Result image fill */
+  .result-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Tab switcher */
+  .tab-switcher {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-card-highest);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    font-family: inherit;
+  }
+  .tab-btn.active {
+    background: var(--accent-primary);
+    color: var(--text-inverse);
+  }
+  .tab-btn:not(.active):hover {
+    background: var(--bg-card-high);
+    color: var(--text-primary);
   }
 }

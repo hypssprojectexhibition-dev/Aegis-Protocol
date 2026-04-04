@@ -8,24 +8,30 @@ import {
   PhotoCameraRounded as Camera,
   AutoFixHighRounded as Eraser,
   AccountCircleRounded as User,
+  MergeRounded as Combine,
+  FingerprintRounded as Fingerprint,
 } from '@mui/icons-material';
 import logo from '../assets/logo.png';
 import CapturePage from './dashboard/Capture';
 import SplitPage from './dashboard/Split';
+import CombinePage from './dashboard/CombinePage';
 import RedactPage from './dashboard/Redact';
 import ProfilePage from './dashboard/Profile';
 import SettingsPage from './dashboard/Settings';
+import WatermarkPage from './dashboard/Watermark';
 import { supabase } from '../lib/supabase';
 import WindowControls from '../components/WindowControls';
 
-type Tab = 'capture' | 'share' | 'redact' | 'settings' | 'profile';
+type Tab = 'capture' | 'share' | 'combine' | 'watermark' | 'redact' | 'settings' | 'profile';
 
 const TABS: { id: Tab; icon: any; label: string }[] = [
-  { id: 'share', icon: ShareRounded, label: 'Share' },
-  { id: 'settings', icon: Settings, label: 'Settings' },
-  { id: 'capture', icon: Camera, label: 'Capture' },
-  { id: 'redact', icon: Eraser, label: 'Redact' },
-  { id: 'profile', icon: User, label: 'Profile' },
+  { id: 'share',     icon: ShareRounded, label: 'Split' },
+  { id: 'combine',   icon: Combine,      label: 'Combine' },
+  { id: 'capture',   icon: Camera,       label: 'Capture' },
+  { id: 'watermark', icon: Fingerprint,  label: 'Stega' },
+  { id: 'redact',    icon: Eraser,       label: 'Redact' },
+  { id: 'settings',  icon: Settings,     label: 'Settings' },
+  { id: 'profile',   icon: User,         label: 'Profile' },
 ];
 
 export default function Dashboard() {
@@ -100,7 +106,8 @@ export default function Dashboard() {
         <nav style={{
           width: 80, flexShrink: 0, background: 'var(--bg-card)',
           borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '24px 0', gap: 32, zIndex: 999, position: 'relative', pointerEvents: 'auto'
+          padding: '16px 0', gap: 24, zIndex: 999, position: 'relative', pointerEvents: 'auto',
+          overflowY: 'auto',
         }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -128,13 +135,38 @@ export default function Dashboard() {
                  </div>
                );
              }
+
+             // Special gold accent for combine tab
+             if (tab.id === 'combine') {
+               return (
+                 <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, pointerEvents: 'auto', transition: 'opacity 0.15s' }}>
+                   <Icon sx={{ fontSize: 24, color: active ? 'var(--accent-gold)' : 'var(--text-muted)' }} />
+                   <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, textTransform: 'uppercase', letterSpacing: '0.1em', color: active ? 'var(--accent-gold)' : 'var(--text-muted)', marginTop: 4 }}>
+                     {tab.label}
+                   </span>
+                 </div>
+               );
+             }
+
+             // Special blue accent for watermark (stega) tab
+             if (tab.id === 'watermark') {
+               return (
+                 <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, pointerEvents: 'auto', transition: 'opacity 0.15s' }}>
+                   <Icon sx={{ fontSize: 24, color: active ? 'var(--accent-blue)' : 'var(--text-muted)' }} />
+                   <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, textTransform: 'uppercase', letterSpacing: '0.1em', color: active ? 'var(--accent-blue)' : 'var(--text-muted)', marginTop: 4 }}>
+                     {tab.label}
+                   </span>
+                 </div>
+               );
+             }
  
              return (
                <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', opacity: active ? 1 : 0.4, pointerEvents: 'auto' }}>
                  <Icon sx={{ fontSize: 24, color: active ? 'var(--accent-primary)' : 'var(--text-muted)' }} />
                  <span style={{ 
                    fontSize: 10, fontWeight: active ? 700 : 500, textTransform: 'uppercase', 
-                   letterSpacing: '0.1em', color: active ? 'var(--accent-primary)' : 'var(--text-muted)' 
+                   letterSpacing: '0.1em', color: active ? 'var(--accent-primary)' : 'var(--text-muted)',
+                   marginTop: 4,
                  }}>
                    {tab.label}
                  </span>
@@ -149,8 +181,13 @@ export default function Dashboard() {
             <CapturePage />
           </div>
           <div style={{ display: activeTab === 'share' ? 'block' : 'none', height: '100%' }}>
-            {/* Share Flow placeholder - VisualCrypto */}
             <SplitPage />
+          </div>
+          <div style={{ display: activeTab === 'combine' ? 'block' : 'none', height: '100%' }}>
+            <CombinePage />
+          </div>
+          <div style={{ display: activeTab === 'watermark' ? 'block' : 'none', padding: 32 }}>
+            <WatermarkPage />
           </div>
           <div style={{ display: activeTab === 'redact' ? 'block' : 'none', height: '100%' }}>
             <RedactPage />
