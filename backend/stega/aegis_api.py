@@ -269,6 +269,10 @@ async def attack_api(
     else:
         return {"attacked_image": attacked_b64, "secret": "BCH Uncorrectable", "accuracy": "0.00%", "status": "error"}
 
+@app.get("/")
+def read_root():
+    return {"message": "Aegis Stega API is running"}
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
