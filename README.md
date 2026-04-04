@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" height="auto" alt="Aegis Protocol Logo">
+<img src="'/Users/montero/Aegis-Protocol/app/src/aegis logo un.png'" width="128" height="auto" alt="Aegis Protocol Logo">
 
 # Aegis Protocol (Mobile)
 
