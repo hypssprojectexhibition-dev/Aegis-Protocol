@@ -28,7 +28,7 @@ fn project_root() -> PathBuf {
     }
 
     // Fallback: try the known development path
-    let fallback = PathBuf::from(r"C:\Users\Saket\Documents\AegisDekstop\Aegis Protocol");
+    let fallback = PathBuf::from(r"C:\Users\Saket\Documents\AegisDekstop\AegisProtocol");
     if fallback.join("backend").is_dir() {
         return fallback;
     }
@@ -36,19 +36,20 @@ fn project_root() -> PathBuf {
     dir
 }
 
-fn spawn_backend(root: &PathBuf, subdir: &str, script: &str) -> Option<Child> {
+fn spawn_backend(root: &PathBuf, subdir: &str, script: &str, port: u16) -> Option<Child> {
     let work_dir = root.join("backend").join(subdir);
     if !work_dir.join(script).exists() {
         eprintln!("[Aegis] Script not found: {:?}/{}", work_dir, script);
         return None;
     }
 
-    println!("[Aegis] Starting {} from {:?}", script, work_dir);
+    println!("[Aegis] Starting {} from {:?} on port {}", script, work_dir, port);
 
     // Try "python" first, then "python3"
     let child = Command::new("python")
         .current_dir(&work_dir)
         .arg(script)
+        .env("PORT", port.to_string())
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
         .spawn()
@@ -56,6 +57,7 @@ fn spawn_backend(root: &PathBuf, subdir: &str, script: &str) -> Option<Child> {
             Command::new("python3")
                 .current_dir(&work_dir)
                 .arg(script)
+                .env("PORT", port.to_string())
                 .stdout(std::process::Stdio::inherit())
                 .stderr(std::process::Stdio::inherit())
                 .spawn()
@@ -80,18 +82,19 @@ pub fn run() {
 
     let mut children: Vec<Child> = Vec::new();
 
-    // Launch all three Python backends
-    if let Some(c) = spawn_backend(&root, "stega", "aegis_api.py") {
+    // Launch all three Python backends on their dedicated ports
+    if let Some(c) = spawn_backend(&root, "stega", "aegis_api.py", 8000) {
         children.push(c);
     }
-    if let Some(c) = spawn_backend(&root, "crypto", "app.py") {
+    if let Some(c) = spawn_backend(&root, "crypto", "app.py", 5000) {
         children.push(c);
     }
-    if let Some(c) = spawn_backend(&root, "redaction", "redaction_api.py") {
+    if let Some(c) = spawn_backend(&root, "redaction", "redaction_api.py", 8001) {
         children.push(c);
     }
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

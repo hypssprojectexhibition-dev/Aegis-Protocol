@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Aegis Protocol",
         "width": 1100,
         "height": 700,
@@ -19,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://*.supabase.co; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://127.0.0.1:* http://localhost:* http://10.130.151.166:* https://*.supabase.co; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:* http://10.130.151.166:*; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {

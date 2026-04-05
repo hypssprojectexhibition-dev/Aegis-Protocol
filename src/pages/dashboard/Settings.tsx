@@ -10,10 +10,15 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../lib/store';
+import ServerConnect from '../../components/dashboard/ServerConnect';
+import ProfilePage from './Profile';
+import { ArrowBackIosNewRounded as BackIcon } from '@mui/icons-material';
 
 export default function SettingsPage() {
+  const isMobile = window.innerWidth <= 768;
   const { theme, setTheme } = useAppStore();
   const [user, setUser] = useState<any>(null);
+  const [isViewingProfile, setIsViewingProfile] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -27,28 +32,51 @@ export default function SettingsPage() {
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+  if (isMobile && isViewingProfile) {
+    return (
+      <div style={{ position: 'relative', height: '100%' }}>
+        <button 
+          onClick={() => setIsViewingProfile(false)}
+          style={{ 
+            position: 'absolute', top: 16, left: 16, zIndex: 100,
+            background: 'var(--bg-card)', border: '1px solid var(--border)', 
+            color: 'var(--accent-primary)', padding: '8px 16px', borderRadius: 0,
+            display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.1em'
+          }}
+        >
+          <BackIcon sx={{ fontSize: 14 }} />
+          Back to Settings
+        </button>
+        <div style={{ paddingTop: 40, height: '100%' }}>
+          <ProfilePage />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? 16 : 32, display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 1200, margin: '0 auto' }}>
       
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: 32 }}>
         
         {/* Left Column: Branding Overview */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           
-          <div className="panel" style={{ padding: 40, position: 'relative', borderRadius: 0 }}>
+          <div className="panel hover-target" onClick={() => isMobile && setIsViewingProfile(true)} style={{ padding: isMobile ? 24 : 40, position: 'relative', borderRadius: 0, cursor: isMobile ? 'pointer' : 'default' }}>
             <Settings sx={{ fontSize: 120, color: 'var(--text-primary)', position: 'absolute', top: -10, right: -10, opacity: 0.05 }} />
-            <h2 className="font-headline" style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1.1, marginBottom: 8 }}>
+            <h2 className="font-headline" style={{ fontSize: isMobile ? 32 : 40, fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1.1, marginBottom: 8 }}>
               Terminal<br/><span style={{ color: 'var(--accent-primary)' }}>Config</span>
             </h2>
-            <p className="text-label" style={{ textTransform: 'none', letterSpacing: 'normal', fontSize: 12, color: 'var(--text-muted)', marginBottom: 32, maxWidth: 220 }}>
+            <p className="text-label" style={{ textTransform: 'none', letterSpacing: 'normal', fontSize: 12, color: 'var(--text-muted)', marginBottom: isMobile ? 20 : 32, maxWidth: 220 }}>
               Administrative interface for local node and security parameters.
             </p>
 
-            <div className="panel-highest" style={{ display: 'flex', alignItems: 'center', gap: 16, borderRadius: 0 }}>
+            <div className="panel-highest" style={{ display: 'flex', alignItems: 'center', gap: 16, borderRadius: 0, background: isMobile ? 'var(--bg-card-high)' : 'var(--bg-card-highest)' }}>
               <div style={{ width: 48, height: 48, borderRadius: 0, background: 'var(--accent-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <User sx={{ fontSize: 24, color: 'var(--accent-primary)' }} />
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <p className="font-headline" style={{ fontSize: 14, fontWeight: 700 }}>
                   {user?.user_metadata?.full_name || 'Operative'}
                 </p>
@@ -56,11 +84,12 @@ export default function SettingsPage() {
                   {user?.aud === 'authenticated' ? 'Authorized Access' : 'Guest Mode'}
                 </p>
               </div>
+              {isMobile && <BackIcon sx={{ fontSize: 14, color: 'var(--text-muted)', transform: 'rotate(180deg)' }} />}
             </div>
           </div>
 
           {/* Stats Tonal Shift */}
-          <div className="panel" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="panel" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
             <div>
               <p className="text-label" style={{ marginBottom: 4 }}>Node Status</p>
               <p className="font-headline" style={{ fontSize: 24, fontWeight: 800 }}>ACTIVE</p>
@@ -74,7 +103,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Right Column: Settings Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignContent: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, alignContent: 'start' }}>
           
           <div className="panel hover-target" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 160, cursor: 'pointer', borderRadius: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -126,6 +155,11 @@ export default function SettingsPage() {
             </div>
           </div>
 
+        </div>
+        
+        {/* Full Width Footer Section */}
+        <div style={{ gridColumn: '1 / -1', marginTop: 16 }}>
+           <ServerConnect />
         </div>
 
       </div>

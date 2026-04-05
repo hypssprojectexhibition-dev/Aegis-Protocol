@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { REDACT_API } from '../../lib/api';
+import { getRedactApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import {
   CloudUploadRounded as Upload,
@@ -12,6 +12,8 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function RedactPage() {
+  const isMobile = window.innerWidth <= 768;
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function RedactPage() {
       };
       Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
 
-      const res = await fetch(`${REDACT_API}/api/redact`, { method: 'POST', body: fd });
+      const res = await fetch(`${getRedactApi()}/api/redact`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error('Redaction engine failed');
       const data = await res.json();
       setResult(data.redacted_image);
@@ -81,10 +83,10 @@ export default function RedactPage() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', width: '100%', overflow: isMobile ? 'auto' : 'hidden' }}>
 
       {/* LEFT SIDEBAR: Targets */}
-      <aside style={{ width: 320, background: 'var(--bg-card)', borderRight: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0 }}>
+      <aside style={{ width: isMobile ? '100%' : 320, background: 'var(--bg-card)', borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', padding: 24, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0 }}>
 
         {/* Engine Status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -129,7 +131,7 @@ export default function RedactPage() {
       </aside>
 
       {/* CENTER STAGE: Canvas */}
-      <section style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+      <section style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 16 : 48, minHeight: isMobile ? 350 : 'auto' }}>
 
         {/* Glow bg */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, rgba(113, 217, 180, 0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -184,7 +186,7 @@ export default function RedactPage() {
       </section>
 
       {/* RIGHT SIDEBAR: Actions */}
-      <aside style={{ width: 320, background: 'var(--bg-card)', borderLeft: '1px solid var(--border)', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexShrink: 0 }}>
+      <aside style={{ width: isMobile ? '100%' : 320, background: 'var(--bg-card)', borderLeft: isMobile ? 'none' : '1px solid var(--border)', borderTop: isMobile ? '1px solid var(--border)' : 'none', padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexShrink: 0 }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <button className="btn-primary" onClick={redact} disabled={!file || loading} style={{ width: '100%', padding: '20px 0' }}>

@@ -9,7 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import numpy as np
+import numpy as np
 import bchlib
+
+MODEL_LOADED = False
 
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
@@ -29,6 +32,13 @@ except AttributeError:
 
 app = FastAPI(title="Aegis API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+@app.get("/health")
+def health_check():
+    if not MODEL_LOADED:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="Stega models not loaded")
+    return {"status": "ok", "engine": "stega"}
 
 BCH_POLYNOMIAL = 137
 BCH_BITS = 5
@@ -86,15 +96,24 @@ def ensure_model_exists():
 ensure_model_exists()
 
 print("[Aegis API] Loading TensorFlow graph and weights into memory...")
-sess = tf.InteractiveSession(graph=tf.Graph())
-model = tf.saved_model.loader.load(sess, [tag_constants.SERVING], MODEL_DIR)
+try:
+    sess = tf.InteractiveSession(graph=tf.Graph())
+    model = tf.saved_model.loader.load(sess, [tag_constants.SERVING], MODEL_DIR)
+    
+    signature_def = model.signature_def[signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+    input_secret = tf.get_default_graph().get_tensor_by_name(signature_def.inputs['secret'].name)
+    input_image = tf.get_default_graph().get_tensor_by_name(signature_def.inputs['image'].name)
+    output_stegastamp = tf.get_default_graph().get_tensor_by_name(signature_def.outputs['stegastamp'].name)
+    output_secret = tf.get_default_graph().get_tensor_by_name(signature_def.outputs['decoded'].name)
+    print("[Aegis API] Model loaded and ready for instantaneous inference!")
+    MODEL_LOADED = True
+except Exception as e:
+    print(f"❌ [Aegis API] Stega Model failed to load: {e}")
+    MODEL_LOADED = False
 
-signature_def = model.signature_def[signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
-input_secret = tf.get_default_graph().get_tensor_by_name(signature_def.inputs['secret'].name)
-input_image = tf.get_default_graph().get_tensor_by_name(signature_def.inputs['image'].name)
-output_stegastamp = tf.get_default_graph().get_tensor_by_name(signature_def.outputs['stegastamp'].name)
-output_secret = tf.get_default_graph().get_tensor_by_name(signature_def.outputs['decoded'].name)
-print("[Aegis API] Model loaded and ready for instantaneous inference!")
+@app.get("/")
+def read_root():
+    return {"message": "Aegis Stega API is running"}
 
 def pil_to_b64(img: Image.Image, format="PNG") -> str:
     buffered = io.BytesIO()
@@ -107,6 +126,9 @@ async def encode_api(
     secret_text: str = Form(""),
     alpha: float = Form(1.0)
 ):
+    if not MODEL_LOADED:
+        return {"error": "Stega engine models are not loaded on this server."}
+        
     img_bytes = await image.read()
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     
@@ -178,6 +200,9 @@ async def encode_api(
 
 @app.post("/api/decode")
 async def decode_api(image: UploadFile = File(...)):
+    if not MODEL_LOADED:
+        return {"error": "Stega engine models are not loaded on this server.", "status": "error"}
+        
     start_time = time.time()
     img_bytes = await image.read()
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
@@ -219,6 +244,9 @@ async def attack_api(
     contrast_adj: float = Form(1.0),
     crop_percent: int = Form(0)
 ):
+    if not MODEL_LOADED:
+        return {"error": "Stega engine models are not loaded on this server.", "status": "error"}
+        
     img_bytes = await image.read()
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     
@@ -269,16 +297,16 @@ async def attack_api(
     else:
         return {"attacked_image": attacked_b64, "secret": "BCH Uncorrectable", "accuracy": "0.00%", "status": "error"}
 
-@app.get("/")
-def read_root():
-    return {"message": "Aegis Stega API is running"}
-
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.environ.get("PORT", 8000))
     print("\n" + "="*50)
-    print("🚀 Aegis Dashboard is running!")
-    print("👉 Open your browser to: http://127.0.0.1:8000")
+    print("🚀 Aegis Stega API is running!")
+    print(f"👉 Local:   http://127.0.0.1:{port}")
+    print(f"👉 Network: http://0.0.0.0:{port}")
     print("="*50 + "\n")
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

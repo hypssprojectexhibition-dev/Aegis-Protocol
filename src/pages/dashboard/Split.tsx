@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CRYPTO_API } from '../../lib/api';
+import { getCryptoApi } from '../../lib/api';
 import {
   StorageRounded as Database,
   SdCardRounded as HardDrive,
@@ -12,6 +12,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function SplitPage() {
+  const isMobile = window.innerWidth <= 768;
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [shares, setShares] = useState<string[]>([]);
@@ -31,7 +32,7 @@ export default function SplitPage() {
       fd.append('image1', file);
       fd.append('operation', 'encryption');
       fd.append('algorithm', 'rg_color_additive_SS');
-      const res = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: fd });
+      const res = await fetch(`${getCryptoApi()}/process`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       if (data.status !== 'success') throw new Error(data.message || 'Splitting failed');
@@ -62,10 +63,10 @@ export default function SplitPage() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', width: '100%', overflow: isMobile ? 'auto' : 'hidden' }}>
 
       {/* Left Column: Media Preview */}
-      <section style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+      <section style={{ flex: 1, padding: isMobile ? 16 : 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', background: 'var(--bg-card)' }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="text-label" style={{ color: 'var(--accent-primary)' }}>Cryptographic Partitioning</span>
@@ -78,9 +79,8 @@ export default function SplitPage() {
           </div>
         )}
 
-        {/* Bento Image Box */}
         <label style={{
-          flex: 1, position: 'relative', borderRadius: 0, overflow: 'hidden',
+          flex: 1, minHeight: isMobile ? 300 : 'auto', position: 'relative', borderRadius: 0, overflow: 'hidden',
           background: 'var(--bg-card-highest)', border: '1px solid var(--border)', display: 'block', cursor: 'pointer'
         }}>
           {!preview && (
@@ -110,7 +110,7 @@ export default function SplitPage() {
       </section>
 
       {/* Right Column: Process & Controls */}
-      <section style={{ width: 450, padding: 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
+      <section style={{ width: isMobile ? '100%' : 450, padding: isMobile ? 16 : 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
 
         {/* Fragmenting Progress Section */}
         <div className="panel" style={{ padding: 24, boxShadow: 'var(--shadow-heavy)' }}>

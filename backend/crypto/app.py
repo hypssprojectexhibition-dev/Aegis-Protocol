@@ -8,6 +8,10 @@ from algo_interface import ALGORITHM_MODULES
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "ok", "engine": "crypto"})
+
 # Ensure working directories exist
 os.makedirs('static/uploads', exist_ok=True)
 os.makedirs('static/output', exist_ok=True)
@@ -89,7 +93,10 @@ def process():
 
 
 if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
     print("\n" + "=" * 50)
-    print("  VisualCrypto Engine — http://127.0.0.1:5000")
+    print("  VisualCrypto Engine")
+    print(f"  👉 Local:   http://127.0.0.1:{port}")
+    print(f"  👉 Network: http://0.0.0.0:{port}")
     print("=" * 50 + "\n")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)

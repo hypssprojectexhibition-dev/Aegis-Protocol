@@ -10,6 +10,7 @@ import {
 import { supabase } from '../../lib/supabase';
 
 export default function ProfilePage() {
+  const isMobile = window.innerWidth <= 768;
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({ protected: 0, shared: 0, redacted: 0 });
 
@@ -36,7 +37,7 @@ export default function ProfilePage() {
     <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 1200, margin: '0 auto' }}>
       
       {/* 2-Column Split matching the mobile asymmetric design */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: 32 }}>
 
         {/* Left Column: Identity Card */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -85,14 +86,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Right Column: Data Clusters & Quick Stats (Bento Grid) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, alignContent: 'start' }}>
+        <div style={{ display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : 'row', gridTemplateColumns: isMobile ? undefined : 'repeat(3, 1fr)', gap: 24, alignContent: 'start' }}>
           
           {/* Main Metric */}
-          <div className="glass-panel" style={{ gridColumn: 'span 3', padding: 32, position: 'relative', overflow: 'hidden' }}>
-            <Database sx={{ fontSize: 160, color: 'var(--accent-primary)', position: 'absolute', top: -20, right: 32, opacity: 0.05 }} />
+          <div className="glass-panel" style={{ gridColumn: isMobile ? '1 / -1' : 'span 3', padding: isMobile ? 24 : 32, position: 'relative', overflow: 'hidden', width: '100%' }}>
+            {!isMobile && <Database sx={{ fontSize: 160, color: 'var(--accent-primary)', position: 'absolute', top: -20, right: 32, opacity: 0.05 }} />}
             <p className="text-label" style={{ color: 'var(--accent-primary)', marginBottom: 8, letterSpacing: '0.2em' }}>System Integrity</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-              <span className="font-headline" style={{ fontSize: 64, fontWeight: 800, letterSpacing: '-0.05em' }}>100%</span>
+              <span className="font-headline" style={{ fontSize: isMobile ? 40 : 64, fontWeight: 800, letterSpacing: '-0.05em' }}>100%</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent-primary)', fontSize: 14, fontWeight: 700 }}>
                 <TrendingUp sx={{ fontSize: 16 }} /> Online
               </span>
@@ -120,7 +121,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Security Log */}
-          <div className="glass-panel" style={{ gridColumn: 'span 3', padding: 24 }}>
+          <div className="glass-panel" style={{ gridColumn: isMobile ? '1 / -1' : 'span 3', padding: 24, width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <h3 className="text-label" style={{ color: 'var(--text-primary)' }}>Recent Security Triggers</h3>
               <span style={{ fontSize: 10, color: 'var(--accent-primary)', cursor: 'pointer', textDecoration: 'underline' }}>View Ledger</span>
@@ -134,12 +135,12 @@ export default function ProfilePage() {
                 </div>
                 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>JUST NOW</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 16, borderBottom: '1px solid var(--border)', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-primary)' }} />
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>Local compute engines initialized</span>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-primary)', flexShrink: 0 }} />
+                  <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 500 }}>Local compute engines initialized</span>
                 </div>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>INITIALIZATION</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>INITIALIZATION</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

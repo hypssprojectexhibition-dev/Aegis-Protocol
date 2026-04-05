@@ -1,4 +1,5 @@
 import io
+import os
 import base64
 import time
 from fastapi import FastAPI, Form, UploadFile, File
@@ -12,6 +13,10 @@ from RedactionPro_pipeline import RedactionProEngine
 
 app = FastAPI(title="RedactionPro API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "engine": "redaction"}
 
 print("Loading RedactionPro Models...")
 engine = RedactionProEngine()
@@ -70,8 +75,10 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.environ.get("PORT", 8001))
     print("\n" + "="*50)
     print("🚀 RedactionPro API is running!")
-    print("👉 Serving at: http://127.0.0.1:8001")
+    print(f"👉 Local:   http://127.0.0.1:{port}")
+    print(f"👉 Network: http://0.0.0.0:{port}")
     print("="*50 + "\n")
-    uvicorn.run(app, host="127.0.0.1", port=8001, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

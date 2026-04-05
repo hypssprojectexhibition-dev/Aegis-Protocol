@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STEGA_API, CRYPTO_API } from '../../lib/api';
+import { getStegaApi, getCryptoApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { 
   CheckCircle2, 
@@ -36,7 +36,7 @@ export default function Verify() {
 
       let decRes: Response;
       try {
-        decRes = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: vcFd });
+        decRes = await fetch(`${getCryptoApi()}/process`, { method: 'POST', body: vcFd });
       } catch {
         throw new Error(`Cannot reach VisualCrypto API (5000). Ensure the backend is running.`);
       }
@@ -58,7 +58,7 @@ export default function Verify() {
 
       let stegaRes: Response;
       try {
-        stegaRes = await fetch(`${STEGA_API}/api/decode`, { method: 'POST', body: decodeFd });
+        stegaRes = await fetch(`${getStegaApi()}/api/decode`, { method: 'POST', body: decodeFd });
       } catch {
         throw new Error(`Cannot reach StegaStamp API (8000). Ensure the backend is running.`);
       }

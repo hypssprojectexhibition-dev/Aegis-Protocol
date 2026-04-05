@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STEGA_API } from '../../lib/api';
+import { getStegaApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import {
   Upload,
@@ -19,6 +19,7 @@ type WatermarkTab = 'embed' | 'decode';
 
 // ─── Embed Sub-Page ───────────────────────────────────────────────────────────
 function EmbedTab() {
+  const isMobile = window.innerWidth <= 768;
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [secret, setSecret] = useState('AEGIS');
@@ -47,7 +48,7 @@ function EmbedTab() {
       fd.append('image', file);
       fd.append('secret_text', secret.slice(0, 7));
       fd.append('alpha', INTENSITY_MAP[intensity].toString());
-      const res = await fetch(`${STEGA_API}/api/encode`, { method: 'POST', body: fd });
+      const res = await fetch(`${getStegaApi()}/api/encode`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       setStegoB64(data.stego);
@@ -84,7 +85,7 @@ function EmbedTab() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
         {/* Input */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -173,6 +174,7 @@ function EmbedTab() {
 type DecodeStatus = 'idle' | 'loading' | 'success' | 'warning' | 'error';
 
 function DecodeTab() {
+  const isMobile = window.innerWidth <= 768;
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -191,7 +193,7 @@ function DecodeTab() {
     try {
       const fd = new FormData();
       fd.append('image', file);
-      const res = await fetch(`${STEGA_API}/api/decode`, { method: 'POST', body: fd });
+      const res = await fetch(`${getStegaApi()}/api/decode`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       setResult(data);
@@ -226,7 +228,7 @@ function DecodeTab() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
         {/* Input */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -315,7 +317,7 @@ function DecodeTab() {
               <div style={{ height: 1, background: 'var(--border)' }} />
 
               {/* Metrics Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text-muted)' }}>
                     Extracted Secret

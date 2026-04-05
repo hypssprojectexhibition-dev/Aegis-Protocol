@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CRYPTO_API } from '../../lib/api';
+import { getCryptoApi } from '../../lib/api';
 import {
   MergeRounded as Combine,
   DownloadRounded as Download,
@@ -13,6 +13,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 
 export default function CombinePage() {
+  const isMobile = window.innerWidth <= 768;
   const [shareA, setShareA] = useState<File | null>(null);
   const [shareB, setShareB] = useState<File | null>(null);
   const [previewA, setPreviewA] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export default function CombinePage() {
       fd.append('image2', shareB);
       fd.append('operation', 'decryption');
       fd.append('algorithm', 'rg_color_additive_SS');
-      const res = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: fd });
+      const res = await fetch(`${getCryptoApi()}/process`, { method: 'POST', body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message || `Server returned ${res.status}`);
@@ -75,10 +76,10 @@ export default function CombinePage() {
   const bothLoaded = shareA && shareB;
 
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', width: '100%', overflow: isMobile ? 'auto' : 'hidden' }}>
 
       {/* Left Column: Share Previews */}
-      <section style={{ flex: 1, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+      <section style={{ flex: 1, padding: isMobile ? 16 : 32, display: 'flex', flexDirection: 'column', gap: 24, borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', background: 'var(--bg-card)' }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="text-label" style={{ color: 'var(--accent-gold)' }}>Visual Cryptography</span>
@@ -92,7 +93,7 @@ export default function CombinePage() {
         )}
 
         {/* Share Uploads — Side by Side */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, flex: 1 }}>
           {/* Share A */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -171,7 +172,7 @@ export default function CombinePage() {
       </section>
 
       {/* Right Column: Status + Output */}
-      <section style={{ width: 450, padding: 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
+      <section style={{ width: isMobile ? '100%' : 450, padding: isMobile ? 16 : 32, display: 'flex', flexDirection: 'column', gap: 32, flexShrink: 0, background: 'var(--bg-primary)' }}>
 
         {/* Reconstruction Status */}
         <div className="panel" style={{ padding: 24, boxShadow: 'var(--shadow-heavy)' }}>

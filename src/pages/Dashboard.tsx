@@ -8,11 +8,14 @@ import {
   PhotoCameraRounded as Camera,
   AutoFixHighRounded as Eraser,
   AccountCircleRounded as User,
-  MergeRounded as Combine,
   FingerprintRounded as Fingerprint,
+  MenuRounded as Menu,
+  MergeRounded as Combine,
+  LayersRounded as CryptoIcon,
 } from '@mui/icons-material';
 import logo from '../assets/logo.png';
 import CapturePage from './dashboard/Capture';
+import CryptoPage from './dashboard/Crypto';
 import SplitPage from './dashboard/Split';
 import CombinePage from './dashboard/CombinePage';
 import RedactPage from './dashboard/Redact';
@@ -22,17 +25,7 @@ import WatermarkPage from './dashboard/Watermark';
 import { supabase } from '../lib/supabase';
 import WindowControls from '../components/WindowControls';
 
-type Tab = 'capture' | 'share' | 'combine' | 'watermark' | 'redact' | 'settings' | 'profile';
-
-const TABS: { id: Tab; icon: any; label: string }[] = [
-  { id: 'share',     icon: ShareRounded, label: 'Split' },
-  { id: 'combine',   icon: Combine,      label: 'Combine' },
-  { id: 'capture',   icon: Camera,       label: 'Capture' },
-  { id: 'watermark', icon: Fingerprint,  label: 'Stega' },
-  { id: 'redact',    icon: Eraser,       label: 'Redact' },
-  { id: 'settings',  icon: Settings,     label: 'Settings' },
-  { id: 'profile',   icon: User,         label: 'Profile' },
-];
+type Tab = 'capture' | 'crypto' | 'share' | 'combine' | 'watermark' | 'redact' | 'settings' | 'profile';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('capture');
@@ -44,9 +37,38 @@ export default function Dashboard() {
     window.location.reload();
   };
 
+  const isMobile = window.innerWidth <= 768;
+
+  const TABS: { id: Tab; icon: any; label: string }[] = isMobile 
+    ? [
+        { id: 'crypto',    icon: CryptoIcon, label: 'Crypto' },
+        { id: 'capture',   icon: Camera,     label: 'Capture' },
+        { id: 'watermark', icon: Fingerprint, label: 'Stega' },
+        { id: 'redact',    icon: Eraser,      label: 'Redact' },
+        { id: 'settings',  icon: Settings,    label: 'Settings' },
+      ]
+    : [
+        { id: 'share',     icon: ShareRounded, label: 'Split' },
+        { id: 'combine',   icon: Combine,      label: 'Combine' },
+        { id: 'capture',   icon: Camera,       label: 'Capture' },
+        { id: 'watermark', icon: Fingerprint,  label: 'Stega' },
+        { id: 'redact',    icon: Eraser,       label: 'Redact' },
+        { id: 'settings',  icon: Settings,     label: 'Settings' },
+        { id: 'profile',   icon: User,         label: 'Profile' },
+      ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)', overflow: 'hidden', paddingTop: isMobile ? 64 : 0 }}>
       
+      {isMobile && !stegaConnected && (
+        <div style={{ 
+          background: 'var(--accent-gold)', color: '#000', padding: '6px 12px', fontSize: 10, fontWeight: 800, 
+          textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.12em', borderBottom: '1px solid rgba(0,0,0,0.1)' 
+        }}>
+          Neural Link Offline - Configure IP in Settings
+        </div>
+      )}
+
       {/* Top Header */}
       <header 
         style={{
@@ -87,27 +109,42 @@ export default function Dashboard() {
           </div>
 
           <Bell sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => {}} />
-          <LayoutGrid sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }} onClick={handleLogout} />
+          <LayoutGrid sx={{ fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer', display: isMobile ? 'none' : 'block' }} onClick={handleLogout} />
           
           <div style={{ 
-            display: 'flex', alignItems: 'center', height: '100%', 
+            display: isMobile ? 'none' : 'flex', alignItems: 'center', height: '100%', 
             position: 'relative', zIndex: 1000, pointerEvents: 'auto',
             marginLeft: 'auto'
           }}>
             <WindowControls />
           </div>
+          
+          {isMobile && <Menu sx={{ fontSize: 24, color: 'var(--accent-primary)', cursor: 'pointer' }} onClick={() => useAppStore.getState().setMobileNavOpen(!useAppStore.getState().mobileNavOpen)} />}
         </div>
       </header>
 
       {/* Main Container */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column-reverse' : 'row', flex: 1, overflow: 'hidden' }}>
         
         {/* Sidebar Nav */}
         <nav style={{
-          width: 80, flexShrink: 0, background: 'var(--bg-card)',
-          borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '16px 0', gap: 24, zIndex: 999, position: 'relative', pointerEvents: 'auto',
-          overflowY: 'auto',
+          width: isMobile ? '100%' : 80,
+          height: isMobile ? 80 : 'auto',
+          flexShrink: 0, 
+          background: 'var(--bg-card)',
+          borderRight: isMobile ? 'none' : '1px solid var(--border)',
+          borderTop: isMobile ? '1px solid var(--border)' : 'none',
+          display: 'flex', 
+          flexDirection: isMobile ? 'row' : 'column', 
+          alignItems: 'center',
+          justifyContent: isMobile ? 'space-around' : 'flex-start',
+          padding: isMobile ? '0 16px' : '16px 0', 
+          gap: isMobile ? 0 : 24, 
+          zIndex: 999, 
+          position: 'relative', 
+          pointerEvents: 'auto',
+          overflowY: isMobile ? 'hidden' : 'auto',
+          overflowX: isMobile ? 'auto' : 'hidden',
         }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -136,8 +173,8 @@ export default function Dashboard() {
                );
              }
 
-             // Special gold accent for combine tab
-             if (tab.id === 'combine') {
+             // Special gold accent for combine/crypto tab
+             if (tab.id === 'combine' || tab.id === 'crypto') {
                return (
                  <div key={tab.id} onClick={handleTabClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', opacity: active ? 1 : 0.5, pointerEvents: 'auto', transition: 'opacity 0.15s' }}>
                    <Icon sx={{ fontSize: 24, color: active ? 'var(--accent-gold)' : 'var(--text-muted)' }} />
@@ -180,13 +217,10 @@ export default function Dashboard() {
           <div style={{ display: activeTab === 'capture' ? 'block' : 'none', height: '100%' }}>
             <CapturePage />
           </div>
-          <div style={{ display: activeTab === 'share' ? 'block' : 'none', height: '100%' }}>
-            <SplitPage />
+          <div style={{ display: activeTab === 'crypto' || activeTab === 'combine' || activeTab === 'share' ? 'block' : 'none', height: '100%' }}>
+            {isMobile ? <CryptoPage /> : (activeTab === 'combine' ? <CombinePage /> : <SplitPage />)}
           </div>
-          <div style={{ display: activeTab === 'combine' ? 'block' : 'none', height: '100%' }}>
-            <CombinePage />
-          </div>
-          <div style={{ display: activeTab === 'watermark' ? 'block' : 'none', padding: 32 }}>
+          <div style={{ display: activeTab === 'watermark' ? 'block' : 'none', padding: isMobile ? 0 : 32, height: '100%' }}>
             <WatermarkPage />
           </div>
           <div style={{ display: activeTab === 'redact' ? 'block' : 'none', height: '100%' }}>

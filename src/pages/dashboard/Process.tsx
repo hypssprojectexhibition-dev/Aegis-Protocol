@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STEGA_API, CRYPTO_API } from '../../lib/api';
+import { getStegaApi, getCryptoApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { 
   Upload, 
@@ -51,7 +51,7 @@ export default function Process() {
 
       let stegaRes: Response;
       try {
-        stegaRes = await fetch(`${STEGA_API}/api/encode`, { method: 'POST', body: fd });
+        stegaRes = await fetch(`${getStegaApi()}/api/encode`, { method: 'POST', body: fd });
       } catch {
         throw new Error(`Cannot reach StegaStamp Engine (8000). Please start the backend.`);
       }
@@ -70,7 +70,7 @@ export default function Process() {
 
       let vcRes: Response;
       try {
-        vcRes = await fetch(`${CRYPTO_API}/process`, { method: 'POST', body: vcFd });
+        vcRes = await fetch(`${getCryptoApi()}/process`, { method: 'POST', body: vcFd });
       } catch {
         throw new Error(`Cannot reach VisualCrypto Engine (5000). Please start the backend.`);
       }

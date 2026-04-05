@@ -14,8 +14,13 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-set-focus",
     "dialog:default",
-    "fs:default",
-    "fs:write-all",
-    "fs:allow-exists"
+    "fs:allow-exists",
+    {
+      "identifier": "http:default",
+      "allow": [
+        "http://*:*",
+        "https://*:*"
+      ]
+    }
   ]
 }
