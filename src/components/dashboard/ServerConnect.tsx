@@ -13,7 +13,6 @@ export default function ServerConnect() {
   };
 
   const isAllConnected = stegaConnected && cryptoConnected && redactionConnected;
-  const connectionMode = serverIp ? 'Remote Tactical Link' : 'Local Host System';
 
   return (
     <div className="panel" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24, borderRadius: 0, position: 'relative', overflow: 'hidden' }}>
@@ -24,10 +23,10 @@ export default function ServerConnect() {
         <div>
           <h3 className="font-headline" style={{ fontSize: 20, fontWeight: 800, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             <LinkIcon sx={{ fontSize: 20, color: 'var(--accent-primary)' }} />
-            Apparatus Override
+            Neural Link Configuration
           </h3>
           <p className="text-label" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            Configuring connection: {connectionMode}
+            Status: {serverIp.includes('hf.space') ? 'Unified Cloud Hub' : 'Local Node / Custom IP'}
           </p>
         </div>
         
@@ -48,7 +47,7 @@ export default function ServerConnect() {
         {isEditing ? (
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
-              Neural Processor IP Address
+              Remote Node Address
             </label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input 
@@ -56,7 +55,7 @@ export default function ServerConnect() {
                 className="input-field"
                 value={ipInput} 
                 onChange={(e) => setIpInput(e.target.value)} 
-                placeholder="e.g. 192.168.1.100 (Leave blank for Local)" 
+                placeholder="e.g. 192.168.1.100 (Default is Cloud)" 
                 style={{ flex: 1, fontFamily: 'monospace' }} 
               />
               <button className="btn-primary" onClick={handleSave} style={{ padding: '0 24px', borderRadius: 0 }}>
@@ -65,14 +64,14 @@ export default function ServerConnect() {
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button className="btn-outline" onClick={() => { setIpInput('https://hypsss-aegis-link.hf.space'); }} style={{ flex: 1, fontSize: 10, padding: 6 }}>
-                USE CLOUD
+                RESTORE CLOUD
               </button>
               <button className="btn-outline" onClick={() => { setIpInput(''); }} style={{ flex: 1, fontSize: 10, padding: 6 }}>
-                USE LOCAL
+                USE LOCALHOST
               </button>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, fontStyle: 'italic' }}>
-              On Android: Enter your PC's IP (likely <strong>10.130.151.166</strong>) to connect.
+              Operative: Keep set to <strong>hypsss-aegis-link.hf.space</strong> for cloud-first mobile usage.
             </p>
           </div>
         ) : (

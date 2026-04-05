@@ -11,29 +11,29 @@ function isCloudMode(): boolean {
 
 function getHostIp(): string {
    const ip = useAppStore.getState().serverIp;
-   if (!ip || ip.trim() === '') return 'http://127.0.0.1';
+   if (!ip || ip.trim() === '') return 'https://hypsss-aegis-link.hf.space';
    let host = ip.replace(/\/+$/, '');
-   if (!host.startsWith('http')) host = `http://${host}`;
+   if (!host.startsWith('http')) host = `https://${host.replace(/^http:\/\//, '')}`;
    return host;
 }
 
 export function getStegaApi(): string {
   const host = getHostIp();
-  return isCloudMode() ? `${host.replace('http://', 'https://')}/stega` : `${host}:8000`;
+  return isCloudMode() ? `${host}/stega` : (host.includes('hf.space') ? `${host}/stega` : `${host}:8000`);
 }
 export function getCryptoApi(): string {
   const host = getHostIp();
-  return isCloudMode() ? `${host.replace('http://', 'https://')}/crypto` : `${host}:5000`;
+  return isCloudMode() ? `${host}/crypto` : (host.includes('hf.space') ? `${host}/crypto` : `${host}:5000`);
 }
 export function getRedactApi(): string {
   const host = getHostIp();
-  return isCloudMode() ? `${host.replace('http://', 'https://')}/redact` : `${host}:8001`;
+  return isCloudMode() ? `${host}/redact` : (host.includes('hf.space') ? `${host}/redact` : `${host}:8001`);
 }
 
 // Legacy exports for components (backwards compatibility)
-export const STEGA_API = 'http://127.0.0.1:8000';
-export const CRYPTO_API = 'http://127.0.0.1:5000';
-export const REDACT_API = 'http://127.0.0.1:8001';
+export const STEGA_API = 'https://hypsss-aegis-link.hf.space/stega';
+export const CRYPTO_API = 'https://hypsss-aegis-link.hf.space/crypto';
+export const REDACT_API = 'https://hypsss-aegis-link.hf.space/redact';
 
 export function startBackendPolling() {
   const checkStatus = async () => {
@@ -44,9 +44,9 @@ export function startBackendPolling() {
     let redactOk = false;
 
     // ── Cloud fast-path: single /health call returns all engine statuses ──────
-    if (isCloudMode()) {
+    if (isCloudMode() || getHostIp().includes('hf.space')) {
       try {
-        const cloud = getHostIp().replace('http://', 'https://');
+        const cloud = getHostIp();
         const res = await fetch(`${cloud}/health`, { method: 'GET' }).catch(() => null);
         if (res?.ok) {
           const data = await res.json().catch(() => null);
