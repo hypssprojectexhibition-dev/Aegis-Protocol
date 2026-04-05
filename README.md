@@ -73,39 +73,46 @@ VITE_SUPABASE_ANON_KEY="..."
 
 ---
 
-## 🚀 Getting Started
+## 🚀 How to Run the Project (Desktop & Mobile)
 
-The platform heavily streamlines the development workflow. As the backend is cloud-hosted by default, developers only need to run the UI side:
+The platform heavily streamlines the development workflow. Since the backend AI endpoints are securely cloud-hosted via Hugging Face by default, developers only need to run the UI application local to their device:
 
-### Prerequisites
+### 1. Prerequisites & Dependencies
 
-*   **Node.js**: v18+ for the frontend and CLI.
-*   **Rust**: Stable toolchain via `rustup` (for desktop compilation).
-*   **Android Studio**: (Only required if developing for the Android build).
+*   **Node.js**: v18+ (Required for the frontend React application and Tauri CLI).
+*   **Rust**: Stable toolchain via `rustup` (Required for building the Desktop application binaries).
+*   **Android Studio**: (Only required if you intend to run/build the application for an Android Mobile device).
+*   **Git**: For cloning the repository.
 
-### Local Development
+### 2. Local Setup Steps
 
 ```bash
-# 1. Clone the repository
+# Clone the repository to your local machine
 git clone https://github.com/saket/AegisProtocol.git
 cd AegisProtocol
 
-# 2. Install Javascript / React dependencies
+# Install Javascript / React dependencies
 npm install
+```
 
-# 3. Launch Development Environments:
-# Desktop Development
+### 3. Launch Development Environments
+
+**To run the Desktop Application (Windows / macOS / Linux):**
+```bash
 npm run tauri dev
+```
 
-# Android Mobile Development 
+**To run the Mobile Application (Android):**
+Make sure your Android device is connected via USB debugging or an Android Studio emulator is running.
+```bash
 npm run tauri android dev
 ```
 
-### Building for Production
+### 4. Build for Production
 
-Compile a native executable for professional distribution (`.exe`, `.msi`, `.apk`):
+Compile a native executable or deployable package (`.exe`, `.msi`, `.apk`):
 ```bash
-# Build for Desktop (Windows/Linux/macOS)
+# Build for Desktop
 npm run tauri build
 
 # Build for Android
